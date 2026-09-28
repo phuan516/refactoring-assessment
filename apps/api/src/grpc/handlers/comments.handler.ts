@@ -1,5 +1,7 @@
 import type { CommentResponse, ICommentsService } from "@chirp/proto";
+import { errorMessage } from "../../errors";
 import { validateSessionToken } from "../../middleware/auth";
+import { logCaughtError } from "../../observability/logger";
 import { createComment, deleteComment, getPostComments } from "../../services/comments.service";
 import { toProtoTimestamp } from "../../services/utils";
 
@@ -39,10 +41,11 @@ export const commentsHandler: ICommentsService = {
 				commentId: result.commentId,
 			};
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
 				commentId: "",
-				error: error instanceof Error ? error.message : "Failed to create comment",
+				error: errorMessage(error, "Failed to create comment"),
 			};
 		}
 	},
@@ -72,9 +75,10 @@ export const commentsHandler: ICommentsService = {
 
 			return { success: true };
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to delete comment",
+				error: errorMessage(error, "Failed to delete comment"),
 			};
 		}
 	},

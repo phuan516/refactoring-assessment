@@ -1,5 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "../db";
+import { NotFoundError } from "../errors";
 import { generateId } from "./utils";
 
 const { bookmarks, posts, users, likes } = schema;
@@ -12,7 +13,7 @@ export async function toggleBookmark(postId: string, userId: string) {
 	const post = await db.select().from(posts).where(eq(posts.id, postId)).get();
 
 	if (!post) {
-		throw new Error("Post not found");
+		throw new NotFoundError("Post not found");
 	}
 
 	// Check if already bookmarked

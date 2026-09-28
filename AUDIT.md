@@ -69,3 +69,79 @@ never typechecked. Proposed: a `tsconfig.test.json` included in `typecheck`.
 
 E2E is kept out of CI for now: it needs Playwright browsers, a seeded DB and the three servers.
 Next step is a separate job gated on the verify job, after 5.7/5.8 are fixed.
+
+## Task 3: Error handling & observability
+
+### What was there
+
+No gRPC status codes were set anywhere and nothing was logged. Every thrown error surfaced as
+`INTERNAL` with the raw message (including DB/driver text) in `details`. Handlers used five
+different strategies:
+
+| Strategy | Behaviour | RPCs |
+|---|---|---|
+| A. field error | catch, return `{ success: false, error: e.message \|\| fallback }` with status OK | auth register/login; posts create/update/delete; comments create/delete; likes toggle x2; follows toggle; bookmarks toggle; users updateProfile; notifications markAsRead/markAllAsRead/delete; admin ban/unban/updateUserRole/deleteUser/deletePostAdmin/deleteCommentAdmin/reviewReport (22) |
+| B. swallow | catch everything, return a default (`false`, `0`, `[]`); failures invisible | bookmarks getBookmarkStatus/getBookmarkedPosts; follows getFollowStatus/getFollowerCount/getFollowingCount; likes getPostLikeStatus/getCommentLikeStatus; notifications getNotifications/getUnreadCount (9). `auth.validateSession -> {valid:false}` is intended and untouched |
+| C. raw throw | no try/catch; everything `INTERNAL` | feed getHomeFeed; admin listUsers/getUserDetails/listReports/getReport/getDashboardStats/getAuditLogs; users getUser |
+| D. optional auth + raw throw | bad token ignored, service errors `INTERNAL` | posts getPost/getPosts/getUserPosts; comments getPostComments; feed getExploreFeed; search searchPosts/searchUsers |
+| E. re-wrap | `throw new Error(e.message)` loses class and stack | auth getCurrentUser |
+
+### Taxonomy (`apps/api/src/errors.ts`)
+
+| Error class | gRPC code | Client sees | Used for |
+|---|---|---|---|
+| `InvalidArgumentError` | INVALID_ARGUMENT | message | content required / too long, invalid role, reply to a reply, follow yourself |
+| `UnauthenticatedError` | UNAUTHENTICATED | message | "Invalid email or password" |
+| `PermissionDeniedError` | PERMISSION_DENIED | message | "Account banned: ...", "You can only ...", "Unauthorized" |
+| `NotFoundError` | NOT_FOUND | message | every "... not found" |
+| `AlreadyExistsError` | ALREADY_EXISTS | message | email exists, username taken |
+| `FailedPreconditionError` | FAILED_PRECONDITION | message | edit window expired, cannot ban/delete admin users |
+| `InternalError` / any other `Error` / non-Error | INTERNAL | "Internal server error" (original logged) | bugs, DB failures |
+
+Temporary bridge: `middleware/auth.ts` still throws plain `Error`s, so the classifier maps their
+exact messages ("Invalid or expired session token", "Authentication required" -> UNAUTHENTICATED;
+"Admin access required", "Super admin access required" -> PERMISSION_DENIED) and does not mask
+them. Remove once the middleware throws typed errors.
+
+### Tracing and logging design
+
+- `grpc/with-tracing.ts` wraps every handler in `server.ts` (`adaptService(X, withTracing(X, h))`),
+  so handlers and their direct-call unit tests are unchanged, and `ctx` may be undefined.
+- Trace id: incoming `x-trace-id` (then `x-request-id`) if it matches `^[\w.-]{1,128}$`, else
+  `crypto.randomUUID()`. Returned as the `x-trace-id` response header, in trailers on success and
+  in the error metadata on failure, so a user-reported failure can be looked up by id.
+- The id lives in `AsyncLocalStorage` (`observability/context.ts`); every `logger` call anywhere in
+  the request's async chain carries `traceId`, `method` and (once set via `setUserId`) `userId`.
+- `observability/logger.ts`: one JSON line per event to stdout, `LOG_LEVEL` env (default `info`,
+  `silent` under Vitest), injectable sink for tests, never throws on bad fields.
+- Exactly one summary line per RPC; OK at info, client errors at warn, INTERNAL at error with stack;
+  `success: false` bodies logged as `outcome: "soft_failure"` at warn with the body unchanged.
+  Handlers additionally log the error they caught (`handler_caught_error` for strategy A,
+  `handler_swallowed_error` for strategy B) with its class and code.
+
+```json
+{"ts":"2026-09-28T12:00:00.000Z","level":"warn","msg":"rpc","traceId":"3f0c...","method":"chirp.posts.PostsService/GetPost","code":"NOT_FOUND","outcome":"error","durationMs":2.4,"errorClass":"NotFoundError","errorMessage":"Post not found"}
+```
+
+### Contract guarantees
+
+- Response shapes, swallow defaults and every message string are byte-identical. Strategy A still
+  passes through any `Error`'s message (`errorMessage(e, fallback)`) and uses the same fallbacks.
+- Services throw typed errors with the same messages, so `toThrow("msg")` tests and the E2E
+  text regexes still match.
+
+### What changed on the wire
+
+Only thrown paths (C, D, E): status is now the specific code instead of `INTERNAL`; unexpected
+errors no longer leak their message (now "Internal server error"). No client reads gRPC status
+codes today (they surface `message`/`error`), so this is safe. Every response gains an
+`x-trace-id` header.
+
+### Follow-ups
+
+- Migrate `middleware/auth.ts` to `UnauthenticatedError`/`PermissionDeniedError`, call
+  `setUserId` there, then delete the legacy message bridge.
+- Surface the `x-trace-id` in client error toasts so users can quote it.
+- Strategy A returns raw messages for unexpected errors inside a `success: false` body; switch it
+  to mask non-`AppError`s once handler tests stop asserting arbitrary messages.
+- Strategy B endpoints should eventually throw on non-auth failures instead of returning defaults.

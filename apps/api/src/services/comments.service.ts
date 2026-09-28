@@ -1,5 +1,6 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db, schema } from "../db";
+import { InvalidArgumentError, NotFoundError, PermissionDeniedError } from "../errors";
 import { processMentions } from "./mentions.service";
 import { createNotification } from "./notifications.service";
 import { generateId } from "./utils";
@@ -38,14 +39,14 @@ async function getCommentLikeInfo(commentId: string, userId?: string) {
 
 export async function createComment(input: CreateCommentInput) {
 	if (!input.content || input.content.length === 0) {
-		throw new Error("Comment content is required");
+		throw new InvalidArgumentError("Comment content is required");
 	}
 
 	// Verify post exists
 	const post = await db.select().from(posts).where(eq(posts.id, input.postId)).get();
 
 	if (!post) {
-		throw new Error("Post not found");
+		throw new NotFoundError("Post not found");
 	}
 
 	// If parentId provided, verify parent comment exists
@@ -57,12 +58,12 @@ export async function createComment(input: CreateCommentInput) {
 			.get();
 
 		if (!parentComment) {
-			throw new Error("Parent comment not found");
+			throw new NotFoundError("Parent comment not found");
 		}
 
 		// Only allow one level of nesting
 		if (parentComment.parentId) {
-			throw new Error("Cannot reply to a reply");
+			throw new InvalidArgumentError("Cannot reply to a reply");
 		}
 	}
 
@@ -154,11 +155,11 @@ export async function deleteComment(commentId: string, userId: string) {
 	const comment = await db.select().from(comments).where(eq(comments.id, commentId)).get();
 
 	if (!comment) {
-		throw new Error("Comment not found");
+		throw new NotFoundError("Comment not found");
 	}
 
 	if (comment.authorId !== userId) {
-		throw new Error("You can only delete your own comments");
+		throw new PermissionDeniedError("You can only delete your own comments");
 	}
 
 	await db.delete(comments).where(eq(comments.id, commentId));

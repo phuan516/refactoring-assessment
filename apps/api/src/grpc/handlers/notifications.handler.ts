@@ -1,5 +1,7 @@
 import type { INotificationsService } from "@chirp/proto";
+import { errorMessage } from "../../errors";
 import { validateSessionToken } from "../../middleware/auth";
+import { logCaughtError } from "../../observability/logger";
 import {
 	deleteNotification,
 	getUnreadCount,
@@ -39,7 +41,8 @@ export const notificationsHandler: INotificationsService = {
 					createdAt: toProtoTimestamp(n.createdAt),
 				})),
 			};
-		} catch {
+		} catch (error) {
+			logCaughtError("handler_swallowed_error", error);
 			return { notifications: [] };
 		}
 	},
@@ -49,7 +52,8 @@ export const notificationsHandler: INotificationsService = {
 			const auth = validateSessionToken(request.sessionToken);
 			const result = await getUnreadCount(auth.userId);
 			return { count: result.count };
-		} catch {
+		} catch (error) {
+			logCaughtError("handler_swallowed_error", error);
 			return { count: 0 };
 		}
 	},
@@ -60,9 +64,10 @@ export const notificationsHandler: INotificationsService = {
 			await markAsRead(request.notificationId, auth.userId);
 			return { success: true };
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to mark as read",
+				error: errorMessage(error, "Failed to mark as read"),
 			};
 		}
 	},
@@ -73,9 +78,10 @@ export const notificationsHandler: INotificationsService = {
 			await markAllAsRead(auth.userId);
 			return { success: true };
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to mark all as read",
+				error: errorMessage(error, "Failed to mark all as read"),
 			};
 		}
 	},
@@ -86,9 +92,10 @@ export const notificationsHandler: INotificationsService = {
 			await deleteNotification(request.notificationId, auth.userId);
 			return { success: true };
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to delete notification",
+				error: errorMessage(error, "Failed to delete notification"),
 			};
 		}
 	},

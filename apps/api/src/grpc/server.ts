@@ -13,6 +13,7 @@ import {
 } from "@chirp/proto";
 import { Server, ServerCredentials } from "@grpc/grpc-js";
 import { adaptService } from "@protobuf-ts/grpc-backend";
+import { logger } from "../observability/logger";
 import { adminHandler } from "./handlers/admin.handler";
 import { authHandler } from "./handlers/auth.handler";
 import { bookmarksHandler } from "./handlers/bookmarks.handler";
@@ -24,31 +25,38 @@ import { notificationsHandler } from "./handlers/notifications.handler";
 import { postsHandler } from "./handlers/posts.handler";
 import { searchHandler } from "./handlers/search.handler";
 import { usersHandler } from "./handlers/users.handler";
+import { withTracing } from "./with-tracing";
 
-export function startGrpcServer(port: number): Promise<Server> {
+export function startGrpcServer(port: number, host = "0.0.0.0"): Promise<Server> {
 	const server = new Server();
 
-	// Register all service handlers
-	server.addService(...adaptService(AuthService, authHandler));
-	server.addService(...adaptService(PostsService, postsHandler));
-	server.addService(...adaptService(CommentsService, commentsHandler));
-	server.addService(...adaptService(LikesService, likesHandler));
-	server.addService(...adaptService(FollowsService, followsHandler));
-	server.addService(...adaptService(FeedService, feedHandler));
-	server.addService(...adaptService(SearchService, searchHandler));
-	server.addService(...adaptService(UsersService, usersHandler));
-	server.addService(...adaptService(AdminService, adminHandler));
-	server.addService(...adaptService(NotificationsService, notificationsHandler));
-	server.addService(...adaptService(BookmarksService, bookmarksHandler));
+	// Register all service handlers. withTracing adds trace ids, status-code mapping and request logs.
+	server.addService(...adaptService(AuthService, withTracing(AuthService, authHandler)));
+	server.addService(...adaptService(PostsService, withTracing(PostsService, postsHandler)));
+	server.addService(
+		...adaptService(CommentsService, withTracing(CommentsService, commentsHandler)),
+	);
+	server.addService(...adaptService(LikesService, withTracing(LikesService, likesHandler)));
+	server.addService(...adaptService(FollowsService, withTracing(FollowsService, followsHandler)));
+	server.addService(...adaptService(FeedService, withTracing(FeedService, feedHandler)));
+	server.addService(...adaptService(SearchService, withTracing(SearchService, searchHandler)));
+	server.addService(...adaptService(UsersService, withTracing(UsersService, usersHandler)));
+	server.addService(...adaptService(AdminService, withTracing(AdminService, adminHandler)));
+	server.addService(
+		...adaptService(NotificationsService, withTracing(NotificationsService, notificationsHandler)),
+	);
+	server.addService(
+		...adaptService(BookmarksService, withTracing(BookmarksService, bookmarksHandler)),
+	);
 
 	return new Promise((resolve, reject) => {
-		server.bindAsync(`0.0.0.0:${port}`, ServerCredentials.createInsecure(), (error, boundPort) => {
+		server.bindAsync(`${host}:${port}`, ServerCredentials.createInsecure(), (error, boundPort) => {
 			if (error) {
-				console.error("Failed to bind gRPC server:", error);
+				logger.error("grpc_bind_failed", { port, error });
 				reject(error);
 				return;
 			}
-			console.log(`   gRPC server bound to port ${boundPort}`);
+			logger.info("grpc_bound", { port: boundPort });
 			resolve(server);
 		});
 	});

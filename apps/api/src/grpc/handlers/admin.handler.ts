@@ -4,7 +4,9 @@ import type {
 	IAdminService,
 	ReportResponse,
 } from "@chirp/proto";
+import { errorMessage } from "../../errors";
 import { requireAdmin, validateSessionToken } from "../../middleware/auth";
+import { logCaughtError } from "../../observability/logger";
 import {
 	banUser,
 	deleteCommentAdmin,
@@ -108,9 +110,10 @@ export const adminHandler: IAdminService = {
 
 			return { success: true };
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to ban user",
+				error: errorMessage(error, "Failed to ban user"),
 			};
 		}
 	},
@@ -124,9 +127,10 @@ export const adminHandler: IAdminService = {
 
 			return { success: true };
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to unban user",
+				error: errorMessage(error, "Failed to unban user"),
 			};
 		}
 	},
@@ -140,9 +144,10 @@ export const adminHandler: IAdminService = {
 
 			return { success: true };
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to update role",
+				error: errorMessage(error, "Failed to update role"),
 			};
 		}
 	},
@@ -156,9 +161,10 @@ export const adminHandler: IAdminService = {
 
 			return { success: true };
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to delete user",
+				error: errorMessage(error, "Failed to delete user"),
 			};
 		}
 	},
@@ -172,9 +178,10 @@ export const adminHandler: IAdminService = {
 
 			return { success: true };
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to delete post",
+				error: errorMessage(error, "Failed to delete post"),
 			};
 		}
 	},
@@ -188,9 +195,10 @@ export const adminHandler: IAdminService = {
 
 			return { success: true };
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to delete comment",
+				error: errorMessage(error, "Failed to delete comment"),
 			};
 		}
 	},
@@ -230,9 +238,10 @@ export const adminHandler: IAdminService = {
 
 			return { success: true };
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to review report",
+				error: errorMessage(error, "Failed to review report"),
 			};
 		}
 	},

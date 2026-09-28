@@ -1,5 +1,7 @@
 import type { IBookmarksService } from "@chirp/proto";
+import { errorMessage } from "../../errors";
 import { validateSessionToken } from "../../middleware/auth";
+import { logCaughtError } from "../../observability/logger";
 import {
 	getBookmarkedPosts,
 	getBookmarkStatus,
@@ -18,10 +20,11 @@ export const bookmarksHandler: IBookmarksService = {
 				bookmarked: result.bookmarked,
 			};
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
 				bookmarked: false,
-				error: error instanceof Error ? error.message : "Failed to toggle bookmark",
+				error: errorMessage(error, "Failed to toggle bookmark"),
 			};
 		}
 	},
@@ -32,7 +35,8 @@ export const bookmarksHandler: IBookmarksService = {
 			const result = await getBookmarkStatus(request.postId, auth.userId);
 
 			return { bookmarked: result.bookmarked };
-		} catch {
+		} catch (error) {
+			logCaughtError("handler_swallowed_error", error);
 			return { bookmarked: false };
 		}
 	},
@@ -66,7 +70,8 @@ export const bookmarksHandler: IBookmarksService = {
 					isLiked: post.isLiked,
 				})),
 			};
-		} catch {
+		} catch (error) {
+			logCaughtError("handler_swallowed_error", error);
 			return { posts: [] };
 		}
 	},

@@ -1,5 +1,7 @@
 import type { IAuthService } from "@chirp/proto";
+import { errorMessage, InternalError } from "../../errors";
 import { validateSessionToken } from "../../middleware/auth";
+import { logCaughtError } from "../../observability/logger";
 import { getCurrentUser, loginUser, registerUser } from "../../services/auth.service";
 import { toProtoTimestamp } from "../../services/utils";
 
@@ -19,11 +21,12 @@ export const authHandler: IAuthService = {
 				sessionToken: result.sessionToken,
 			};
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
 				userId: "",
 				sessionToken: "",
-				error: error instanceof Error ? error.message : "Registration failed",
+				error: errorMessage(error, "Registration failed"),
 			};
 		}
 	},
@@ -41,11 +44,12 @@ export const authHandler: IAuthService = {
 				sessionToken: result.sessionToken,
 			};
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
 				userId: "",
 				sessionToken: "",
-				error: error instanceof Error ? error.message : "Login failed",
+				error: errorMessage(error, "Login failed"),
 			};
 		}
 	},
@@ -71,7 +75,9 @@ export const authHandler: IAuthService = {
 				createdAt: toProtoTimestamp(user.createdAt),
 			};
 		} catch (error) {
-			throw new Error(error instanceof Error ? error.message : "Failed to get user");
+			throw error instanceof Error
+				? error
+				: new InternalError("Failed to get user", { cause: error });
 		}
 	},
 

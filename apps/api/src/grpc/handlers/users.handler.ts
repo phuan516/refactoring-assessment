@@ -1,5 +1,7 @@
 import type { IUsersService } from "@chirp/proto";
+import { errorMessage } from "../../errors";
 import { validateSessionToken } from "../../middleware/auth";
+import { logCaughtError } from "../../observability/logger";
 import { getUser, updateProfile } from "../../services/users.service";
 import { toProtoTimestamp } from "../../services/utils";
 
@@ -45,9 +47,10 @@ export const usersHandler: IUsersService = {
 
 			return { success: true };
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to update profile",
+				error: errorMessage(error, "Failed to update profile"),
 			};
 		}
 	},

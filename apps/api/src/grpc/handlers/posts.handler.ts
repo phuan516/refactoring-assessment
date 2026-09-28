@@ -1,5 +1,7 @@
 import type { IPostsService, PostResponse } from "@chirp/proto";
+import { errorMessage } from "../../errors";
 import { validateSessionToken } from "../../middleware/auth";
+import { logCaughtError } from "../../observability/logger";
 import {
 	createPost,
 	deletePost,
@@ -44,10 +46,11 @@ export const postsHandler: IPostsService = {
 				postId: result.postId,
 			};
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
 				postId: "",
-				error: error instanceof Error ? error.message : "Failed to create post",
+				error: errorMessage(error, "Failed to create post"),
 			};
 		}
 	},
@@ -78,9 +81,10 @@ export const postsHandler: IPostsService = {
 
 			return { success: true };
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to update post",
+				error: errorMessage(error, "Failed to update post"),
 			};
 		}
 	},
@@ -92,9 +96,10 @@ export const postsHandler: IPostsService = {
 
 			return { success: true };
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to delete post",
+				error: errorMessage(error, "Failed to delete post"),
 			};
 		}
 	},

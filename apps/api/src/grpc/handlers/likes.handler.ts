@@ -1,5 +1,7 @@
 import type { ILikesService } from "@chirp/proto";
+import { errorMessage } from "../../errors";
 import { validateSessionToken } from "../../middleware/auth";
+import { logCaughtError } from "../../observability/logger";
 import {
 	getCommentLikeStatus,
 	getPostLikeStatus,
@@ -18,10 +20,11 @@ export const likesHandler: ILikesService = {
 				liked: result.liked,
 			};
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
 				liked: false,
-				error: error instanceof Error ? error.message : "Failed to toggle like",
+				error: errorMessage(error, "Failed to toggle like"),
 			};
 		}
 	},
@@ -36,10 +39,11 @@ export const likesHandler: ILikesService = {
 				liked: result.liked,
 			};
 		} catch (error) {
+			logCaughtError("handler_caught_error", error);
 			return {
 				success: false,
 				liked: false,
-				error: error instanceof Error ? error.message : "Failed to toggle like",
+				error: errorMessage(error, "Failed to toggle like"),
 			};
 		}
 	},
@@ -50,7 +54,8 @@ export const likesHandler: ILikesService = {
 			const result = await getPostLikeStatus(request.postId, auth.userId);
 
 			return { liked: result.liked };
-		} catch {
+		} catch (error) {
+			logCaughtError("handler_swallowed_error", error);
 			return { liked: false };
 		}
 	},
@@ -61,7 +66,8 @@ export const likesHandler: ILikesService = {
 			const result = await getCommentLikeStatus(request.commentId, auth.userId);
 
 			return { liked: result.liked };
-		} catch {
+		} catch (error) {
+			logCaughtError("handler_swallowed_error", error);
 			return { liked: false };
 		}
 	},
