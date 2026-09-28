@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { createTestLike, createTestPost, createTestUser } from "../../tests/helpers";
+import { db, schema } from "../db";
 import {
 	createPost,
 	deletePost,
@@ -8,6 +10,8 @@ import {
 	getUserPosts,
 	updatePost,
 } from "./posts.service";
+
+const { posts } = schema;
 
 describe("PostsService", () => {
 	describe("createPost", () => {
@@ -147,6 +151,55 @@ describe("PostsService", () => {
 					userId: user.id,
 				}),
 			).rejects.toThrow("Post content must be 280 characters or less");
+		});
+
+		it("rejects update after the 5-minute edit window", async () => {
+			const user = await createTestUser();
+			const postId = await createTestPost(user.id, "Original content");
+			await db
+				.update(posts)
+				.set({ createdAt: new Date(Date.now() - 6 * 60 * 1000) })
+				.where(eq(posts.id, postId));
+
+			await expect(
+				updatePost({
+					postId,
+					content: "Too late",
+					userId: user.id,
+				}),
+			).rejects.toThrow("Edit window has expired (5 minutes)");
+
+			const post = await getPost(postId);
+			expect(post.content).toBe("Original content");
+		});
+
+		it("allows update just inside the edit window", async () => {
+			const user = await createTestUser();
+			const postId = await createTestPost(user.id, "Original content");
+			await db
+				.update(posts)
+				.set({ createdAt: new Date(Date.now() - 4 * 60 * 1000) })
+				.where(eq(posts.id, postId));
+
+			const result = await updatePost({
+				postId,
+				content: "Still in time",
+				userId: user.id,
+			});
+
+			expect(result.success).toBe(true);
+		});
+
+		it("throws for non-existent post", async () => {
+			const user = await createTestUser();
+
+			await expect(
+				updatePost({
+					postId: "nonexistent",
+					content: "Updated content",
+					userId: user.id,
+				}),
+			).rejects.toThrow("Post not found");
 		});
 	});
 
