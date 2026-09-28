@@ -269,3 +269,47 @@ so session tokens cross the network in clear text. Should bind to a private inte
 TLS / a service mesh in production. Session tokens are 7-day bearer tokens with no revocation
 list; logout is client-side only (the DB lookup makes bans and demotions effective, but a stolen
 token for an active user stays valid until expiry). No rate limiting on login.
+
+## Task 4: Test infrastructure & coverage
+
+**Baseline.** API unit tests pass in random order (3 shuffled runs, 138/138): each file gets its own
+in-memory libsql DB (`apps/api/tests/setup.ts`) wiped before every test. Clean E2E baseline (own
+ports, DB copy): client-user 98 passed / 2 failed and client-admin 171 passed / 2 failed at the
+point it was stopped; all 4 failures were the first tests of the run, timing out during Vite's cold
+compile.
+
+**Isolation problems found**
+- *E2E shared mutable users (root cause of flakiness).* `fullyParallel: true` with default workers,
+  and 58 of 66 logins use the seeded `alice`. Specs mutate her bookmarks and follows
+  (`profile.comprehensive.spec.ts:99-126`, `bookmarks.comprehensive.spec.ts`) while others assert
+  on them. The suite papered over this with `if (await x.isVisible())` guards (40 in client-user,
+  166 in client-admin) and always-true expects, e.g. the bookmarks empty-state test commented
+  "Other parallel tests may add bookmarks ... test still passes".
+- *Admin specs mutate data the user suite logs in with*: they ban `.first()` user or user id `1`
+  and delete the first posts (`moderation.workflow.spec.ts:82-410`, `audit.comprehensive.spec.ts`),
+  concurrently with the user suite, against the same DB, with no reset between runs.
+- *Unique id truncated*: `auth.comprehensive.spec.ts:8` does `user_${uniqueId()}`.substring(0, 20),
+  keeping only the epoch seconds, so same-second registrations collide across workers.
+- *API tests*: the schema is hand-copied DDL, not the migrations, so it will drift. Isolation relies
+  on Vitest's implicit `isolate: true` (13-16 failures with `--no-isolate`). `tests/setup.ts` read
+  an export the real module does not have, hidden by `as any` (fixed in Task 5).
+- *Helpers* expose only the fixed seeded users (`TEST_USERS`), with no way to make an isolated user
+  and no DB reset, which steers every new test toward shared state. `loginAs` hides Vite error
+  overlays with CSS, which can mask real server errors.
+
+**Fixed**
+- `loginAsNewUser(page)` in `apps/client-user/tests/e2e/fixtures/test-helpers.ts` registers a unique
+  user through the real form. The bookmarks empty-state test now uses it and asserts unconditionally
+  (previously it could pass without asserting anything).
+- Coverage: added 272 API tests (138 -> 409 passing, 3 skipped as real bugs):
+  - services: admin (every mutation also checks its audit-log row), notifications, search, users,
+    mentions, and the post edit-window expiry error path;
+  - handlers: bookmarks, feed, follows, notifications, search, users (success, bad token, service
+    failure, and the per-method error strategy they use today);
+  - plus Task 1 (password, auth middleware, role change) and Task 2 (output shape + query-count
+    guards) tests.
+- Bugs found by the new tests, left `it.skip` with `// BUG:` (`admin.service.test.ts`), not fixed:
+  admin `listUsers` drops the search term when a role filter is also given; its `total` ignores
+  filters; `listReports` drops the status filter when a type filter is given.
+
+Remaining isolation work is listed in `ISSUES_REMAINING.md`.

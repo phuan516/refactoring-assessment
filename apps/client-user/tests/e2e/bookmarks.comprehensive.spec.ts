@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { createPost, loginAs, uniqueId, waitForHydration } from "./fixtures/test-helpers";
+import {
+	createPost,
+	loginAs,
+	loginAsNewUser,
+	uniqueId,
+	waitForHydration,
+} from "./fixtures/test-helpers";
 
 test.describe("Bookmarks - Comprehensive", () => {
 	test.beforeEach(async ({ page }) => {
@@ -126,41 +132,14 @@ test.describe("Bookmarks - Comprehensive", () => {
 		});
 
 		test("should show empty state when no bookmarks exist", async ({ page }) => {
-			// Navigate to bookmarks page
+			// A fresh user has no bookmarks, so the empty state is deterministic regardless of
+			// what parallel tests do to the shared seeded users.
+			await loginAsNewUser(page);
+
 			await page.goto("/bookmarks", { waitUntil: "networkidle" });
 			await waitForHydration(page);
 
-			// Check if already empty
-			const emptyStateText = page.getByText("No bookmarks yet");
-			if (await emptyStateText.isVisible()) {
-				await expect(emptyStateText).toBeVisible();
-				return;
-			}
-
-			// Remove all existing bookmarks (increased limit for concurrent test runs)
-			let removeButton = page.locator('button[title="Remove bookmark"]').first();
-			let attempts = 0;
-			while ((await removeButton.isVisible()) && attempts < 50) {
-				await removeButton.click();
-				await waitForHydration(page);
-				attempts++;
-				removeButton = page.locator('button[title="Remove bookmark"]').first();
-			}
-
-			// Reload to get fresh state
-			await page.reload({ waitUntil: "networkidle" });
-			await waitForHydration(page);
-
-			// If no more bookmarks visible, should show empty state
-			// Note: Other parallel tests may add bookmarks, so we check if bookmarks still exist
-			const hasMoreBookmarks = await page
-				.locator('button[title="Remove bookmark"]')
-				.first()
-				.isVisible();
-			if (!hasMoreBookmarks) {
-				await expect(page.getByText("No bookmarks yet")).toBeVisible();
-			}
-			// If bookmarks still exist due to parallel tests, test still passes as we demonstrated removal
+			await expect(page.getByText("No bookmarks yet")).toBeVisible();
 		});
 
 		test("should remove bookmark from bookmarks page", async ({ page }) => {

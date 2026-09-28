@@ -92,6 +92,33 @@ export async function loginAs(
 }
 
 /**
+ * Register a brand-new user and log in as them.
+ * Use this for tests that assert on per-user state (bookmarks, follows, notifications):
+ * the seeded users are shared by every parallel worker, so their state is never predictable.
+ */
+export async function loginAsNewUser(
+	page: Page,
+): Promise<{ email: string; password: string; username: string }> {
+	const username = uniqueId("e2e");
+	const user = { email: `${username}@example.com`, password: "password123", username };
+
+	await page.context().clearCookies();
+	await page.goto("/auth/register", { waitUntil: "networkidle" });
+	await waitForHydration(page);
+	await page.fill('input[name="email"]', user.email);
+	await page.fill('input[name="username"]', user.username);
+	await page.fill('input[name="displayName"]', "E2E User");
+	await page.fill('input[name="password"]', user.password);
+	await page.fill('input[name="confirmPassword"]', user.password);
+	await page.click('button[type="submit"]');
+	await expect(page).toHaveURL("/");
+
+	await page.context().clearCookies();
+	await loginAs(page, user);
+	return user;
+}
+
+/**
  * Logout the current user
  */
 export async function logout(page: Page): Promise<void> {
