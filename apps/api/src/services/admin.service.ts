@@ -1,6 +1,7 @@
-import { desc, eq, gte, like, or, sql } from "drizzle-orm";
+import { desc, eq, gte, inArray, like, or, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 import { FailedPreconditionError, InvalidArgumentError, NotFoundError } from "../errors";
+import { countBy } from "./post-hydration";
 import { generateId } from "./utils";
 
 const { users, posts, comments, reports, auditLogs } = schema;
@@ -57,28 +58,17 @@ export async function listUsers(options: ListUsersOptions = {}) {
 
 	const result = await query.orderBy(desc(users.createdAt)).limit(limit).offset(offset);
 
-	// Get post and comment counts
-	const usersWithCounts = await Promise.all(
-		result.map(async (user) => {
-			const postCount = await db
-				.select({ count: sql<number>`count(*)` })
-				.from(posts)
-				.where(eq(posts.authorId, user.id))
-				.get();
+	const userIds = result.map((user) => user.id);
+	const [postCounts, commentCounts] = await Promise.all([
+		countBy(posts.authorId, userIds),
+		countBy(comments.authorId, userIds),
+	]);
 
-			const commentCount = await db
-				.select({ count: sql<number>`count(*)` })
-				.from(comments)
-				.where(eq(comments.authorId, user.id))
-				.get();
-
-			return {
-				...user,
-				postCount: postCount?.count || 0,
-				commentCount: commentCount?.count || 0,
-			};
-		}),
-	);
+	const usersWithCounts = result.map((user) => ({
+		...user,
+		postCount: postCounts.get(user.id) || 0,
+		commentCount: commentCounts.get(user.id) || 0,
+	}));
 
 	// Get total count
 	const totalResult = await db.select({ count: sql<number>`count(*)` }).from(users).get();
@@ -272,21 +262,12 @@ export async function listReports(options: ListReportsOptions = {}) {
 
 	const result = await query.orderBy(desc(reports.createdAt)).limit(limit).offset(offset);
 
-	// Get reporter usernames
-	const reportsWithUsernames = await Promise.all(
-		result.map(async (report) => {
-			const reporter = await db
-				.select({ username: users.username })
-				.from(users)
-				.where(eq(users.id, report.reporterId))
-				.get();
+	const reporterUsernames = await usernamesById(result.map((report) => report.reporterId));
 
-			return {
-				...report,
-				reporterUsername: reporter?.username || "Unknown",
-			};
-		}),
-	);
+	const reportsWithUsernames = result.map((report) => ({
+		...report,
+		reporterUsername: reporterUsernames.get(report.reporterId) || "Unknown",
+	}));
 
 	const totalResult = await db.select({ count: sql<number>`count(*)` }).from(reports).get();
 
@@ -422,21 +403,12 @@ export async function getAuditLogs(
 
 	const result = await query.orderBy(desc(auditLogs.createdAt)).limit(limit).offset(offset);
 
-	// Get admin usernames
-	const logsWithUsernames = await Promise.all(
-		result.map(async (log) => {
-			const admin = await db
-				.select({ username: users.username })
-				.from(users)
-				.where(eq(users.id, log.adminId))
-				.get();
+	const adminUsernames = await usernamesById(result.map((log) => log.adminId));
 
-			return {
-				...log,
-				adminUsername: admin?.username || "Unknown",
-			};
-		}),
-	);
+	const logsWithUsernames = result.map((log) => ({
+		...log,
+		adminUsername: adminUsernames.get(log.adminId) || "Unknown",
+	}));
 
 	const totalResult = await db.select({ count: sql<number>`count(*)` }).from(auditLogs).get();
 
@@ -444,6 +416,19 @@ export async function getAuditLogs(
 		logs: logsWithUsernames,
 		total: totalResult?.count || 0,
 	};
+}
+
+async function usernamesById(userIds: string[]): Promise<Map<string, string>> {
+	if (userIds.length === 0) {
+		return new Map();
+	}
+
+	const rows = await db
+		.select({ id: users.id, username: users.username })
+		.from(users)
+		.where(inArray(users.id, [...new Set(userIds)]));
+
+	return new Map(rows.map((row) => [row.id, row.username]));
 }
 
 async function createAuditLog(

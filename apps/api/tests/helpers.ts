@@ -1,7 +1,8 @@
+import { vi } from "vitest";
 import { db, schema } from "../src/db";
 import { generateId, hashPassword } from "../src/services/utils";
 
-const { users, posts, comments, likes, follows } = schema;
+const { users, posts, comments, likes, follows, bookmarks } = schema;
 
 export interface TestUser {
 	id: string;
@@ -44,12 +45,15 @@ export async function createTestUser(
 export async function createTestPost(
 	authorId: string,
 	content = "Test post content",
+	createdAt?: Date,
 ): Promise<string> {
 	const id = generateId();
 	await db.insert(posts).values({
 		id,
 		content,
 		authorId,
+		createdAt,
+		updatedAt: createdAt,
 	});
 	return id;
 }
@@ -58,6 +62,7 @@ export async function createTestComment(
 	postId: string,
 	authorId: string,
 	content = "Test comment",
+	parentId?: string,
 ): Promise<string> {
 	const id = generateId();
 	await db.insert(comments).values({
@@ -65,6 +70,7 @@ export async function createTestComment(
 		content,
 		postId,
 		authorId,
+		parentId,
 	});
 	return id;
 }
@@ -79,6 +85,16 @@ export async function createTestLike(userId: string, postId: string): Promise<st
 	return id;
 }
 
+export async function createTestCommentLike(userId: string, commentId: string): Promise<string> {
+	const id = generateId();
+	await db.insert(likes).values({
+		id,
+		userId,
+		commentId,
+	});
+	return id;
+}
+
 export async function createTestFollow(followerId: string, followingId: string): Promise<string> {
 	const id = generateId();
 	await db.insert(follows).values({
@@ -87,4 +103,35 @@ export async function createTestFollow(followerId: string, followingId: string):
 		followingId,
 	});
 	return id;
+}
+
+export async function createTestBookmark(
+	userId: string,
+	postId: string,
+	createdAt?: Date,
+): Promise<string> {
+	const id = generateId();
+	await db.insert(bookmarks).values({
+		id,
+		userId,
+		postId,
+		createdAt,
+	});
+	return id;
+}
+
+/**
+ * Runs fn and counts the SQL statements it sends to the database client.
+ * Use it to assert a list query stays constant as the number of rows grows.
+ */
+export async function countQueries<T>(fn: () => Promise<T>): Promise<{ result: T; count: number }> {
+	const execute = vi.spyOn(db.$client, "execute");
+	const batch = vi.spyOn(db.$client, "batch");
+	try {
+		const result = await fn();
+		return { result, count: execute.mock.calls.length + batch.mock.calls.length };
+	} finally {
+		execute.mockRestore();
+		batch.mockRestore();
+	}
 }

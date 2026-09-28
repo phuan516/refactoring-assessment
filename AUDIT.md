@@ -145,3 +145,61 @@ codes today (they surface `message`/`error`), so this is safe. Every response ga
 - Strategy A returns raw messages for unexpected errors inside a `success: false` body; switch it
   to mask non-`AppError`s once handler tests stop asserting arbitrary messages.
 - Strategy B endpoints should eventually throw on non-auth failures instead of returning defaults.
+## Task 2: Query performance
+
+**Anti-pattern (N+1).** List endpoints fetched a page of rows, then ran per-row queries inside
+`Promise.all(rows.map(...))`. The worst case was a `getPostCounts` helper copy-pasted into
+`posts.service.ts`, `feed.service.ts` and `search.service.ts`: two `count(*)` queries plus an
+"is liked" lookup for every post. `getBookmarkedPosts` also fetched each post separately (4 per row).
+Every page load paid one database round trip per row, so cost grew linearly with page size.
+Severity: High (the home feed, profile and bookmarks pages are the hottest paths).
+
+**Fix.** `apps/api/src/services/post-hydration.ts` holds the shared post projection and
+`hydratePosts(rows, viewerId?)`: three batched queries run in parallel (like counts and comment
+counts via `inArray` + `GROUP BY`, and the viewer's likes for the page), mapped back in the original
+order with the same `|| 0` / `false` fallbacks. No viewer query for anonymous requests; no queries at
+all for an empty page. `getBookmarkedPosts` is now one `bookmarks -> posts -> users` join with the
+original `ORDER BY bookmarks.created_at DESC`, limit and offset; bookmarks whose post is gone are
+still dropped. Every `ORDER BY` is unchanged, so ties (timestamps are whole seconds) resolve as before.
+
+**Measured** on the seeded database, viewer alice, by counting statements sent to the libsql client
+(HEAD vs this change, same data). JSON output of every measured call is identical before and after.
+
+| Call (rows returned) | Before | After |
+|---|---|---|
+| `getHomeFeed` (10) | 32 | 5 |
+| `getUserPosts` (11) | 35 | 5 |
+| `getBookmarkedPosts` (10) | 41 | 4 |
+| `getExploreFeed` / `getPosts` (10) | 31 | 4 |
+| `searchPosts` (15) | 46 | 4 |
+| `getPostComments` (2 top-level, 1+3T+2R) | 7 | 4 |
+| `getUserNotifications` (6) | 9 | 3 |
+| admin `listUsers` (7) | 16 | 4 |
+| admin `listReports` / `getAuditLogs` (4) | 6 | 3 |
+| **Home page** (`getCurrentUser` + feed) | 33 | 6 |
+| **Profile page** (user, posts, current user, 2 counts, follow status) | 47 | 17 |
+| **Bookmarks page** (`getCurrentUser` + bookmarks) | 42 | 5 |
+
+After the change every call above is constant in the number of rows.
+
+**Fixed sites:** `getHomeFeed`, `getExploreFeed`, `getPosts`, `getPost`, `getUserPosts`,
+`searchPosts`, `getBookmarkedPosts`, `getPostComments`, `getUserNotifications`, admin `listUsers`,
+`listReports`, `getAuditLogs`. **Checked, not N+1:** `getUser`, `getUserDetails`,
+`getDashboardStats` (fixed number of queries; could be merged, low value).
+
+**Preventing reintroduction.** `countQueries(fn)` in `apps/api/tests/helpers.ts` counts the
+statements a call sends. `tests/post-lists.test.ts` and `tests/list-enrichment.test.ts` pin the exact
+response shape (ordering, counts, `isLiked`, null vs undefined, key order) and assert that each list
+call issues the same number of queries for 10 and 20 rows, under a small bound. A per-row query
+fails those tests. The rule is also written at the top of `post-hydration.ts`.
+
+**Follow-ups (out of scope, not changed):**
+- `getUserPosts` has no `LIMIT`; a prolific user returns every post. Adding pagination changes the
+  API contract (proto + client), so it is left for a separate change. Its `inArray` lists also grow
+  with the post count (SQLite allows 32766 bound parameters).
+- Client side: `BookmarkButton` calls the API once per rendered post to get bookmark status; the
+  profile page fetches follower/following counts separately although `getUser` already returns them.
+- Missing indexes on `likes.post_id`, `comments.post_id`, `posts.author_id`, `bookmarks.user_id`
+  (schema/migration change). Batching cut the number of queries; indexes would cut the cost of each.
+- Task 1 adds one primary-key user lookup per authenticated request, which adds 1 to each
+  page-level count above.

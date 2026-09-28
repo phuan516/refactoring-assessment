@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 import { NotFoundError, PermissionDeniedError } from "../errors";
 import { generateId } from "./utils";
@@ -38,6 +38,22 @@ export async function createNotification(input: CreateNotificationInput) {
 	return { notificationId };
 }
 
+async function contentsById(
+	table: typeof posts | typeof comments,
+	ids: string[],
+): Promise<Map<string, string>> {
+	if (ids.length === 0) {
+		return new Map();
+	}
+
+	const rows = await db
+		.select({ id: table.id, content: table.content })
+		.from(table)
+		.where(inArray(table.id, [...new Set(ids)]));
+
+	return new Map(rows.map((row) => [row.id, row.content]));
+}
+
 /**
  * Get notifications for a user with pagination
  */
@@ -64,37 +80,23 @@ export async function getUserNotifications(userId: string, limit = 20, offset = 
 		.limit(limit)
 		.offset(offset);
 
-	// Enrich with post/comment content preview if applicable
-	const enrichedResults = await Promise.all(
-		results.map(async (notification) => {
-			let postContent: string | null = null;
-			let commentContent: string | null = null;
+	const postIds = results.flatMap((n) => (n.postId ? [n.postId] : []));
+	const commentIds = results.flatMap((n) => (n.commentId ? [n.commentId] : []));
 
-			if (notification.postId) {
-				const post = await db
-					.select({ content: posts.content })
-					.from(posts)
-					.where(eq(posts.id, notification.postId))
-					.get();
-				postContent = post?.content?.substring(0, 100) || null;
-			}
+	const [postContents, commentContents] = await Promise.all([
+		contentsById(posts, postIds),
+		contentsById(comments, commentIds),
+	]);
 
-			if (notification.commentId) {
-				const comment = await db
-					.select({ content: comments.content })
-					.from(comments)
-					.where(eq(comments.id, notification.commentId))
-					.get();
-				commentContent = comment?.content?.substring(0, 100) || null;
-			}
-
-			return {
-				...notification,
-				postContent,
-				commentContent,
-			};
-		}),
-	);
+	const enrichedResults = results.map((notification) => ({
+		...notification,
+		postContent: notification.postId
+			? postContents.get(notification.postId)?.substring(0, 100) || null
+			: null,
+		commentContent: notification.commentId
+			? commentContents.get(notification.commentId)?.substring(0, 100) || null
+			: null,
+	}));
 
 	return enrichedResults;
 }

@@ -1,9 +1,10 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db, schema } from "../db";
 import { NotFoundError } from "../errors";
+import { hydratePosts, postSelection } from "./post-hydration";
 import { generateId } from "./utils";
 
-const { bookmarks, posts, users, likes } = schema;
+const { bookmarks, posts, users } = schema;
 
 /**
  * Toggle bookmark for a post (create if not exists, delete if exists)
@@ -60,78 +61,24 @@ export async function getBookmarkedPosts(
 	limit = 20,
 	offset = 0,
 ) {
-	// Get bookmarked post IDs
-	const bookmarkedPosts = await db
-		.select({
-			postId: bookmarks.postId,
-			bookmarkedAt: bookmarks.createdAt,
-		})
+	const rows = await db
+		.select(postSelection)
 		.from(bookmarks)
+		.leftJoin(posts, eq(bookmarks.postId, posts.id))
+		.leftJoin(users, eq(posts.authorId, users.id))
 		.where(eq(bookmarks.userId, userId))
 		.orderBy(desc(bookmarks.createdAt))
 		.limit(limit)
 		.offset(offset);
 
-	if (bookmarkedPosts.length === 0) {
-		return [];
-	}
+	// A bookmark whose post no longer exists joins to all-null post columns; drop it.
+	type BookmarkedPost = (typeof rows)[number] & {
+		id: string;
+		content: string;
+		createdAt: Date;
+		updatedAt: Date;
+	};
+	const existingPosts = rows.filter((row): row is BookmarkedPost => row.id !== null);
 
-	// Get full post details
-	const postsWithDetails = await Promise.all(
-		bookmarkedPosts.map(async (bookmark) => {
-			const post = await db
-				.select({
-					id: posts.id,
-					content: posts.content,
-					createdAt: posts.createdAt,
-					updatedAt: posts.updatedAt,
-					author: {
-						id: users.id,
-						username: users.username,
-						displayName: users.displayName,
-						avatarUrl: users.avatarUrl,
-					},
-				})
-				.from(posts)
-				.leftJoin(users, eq(posts.authorId, users.id))
-				.where(eq(posts.id, bookmark.postId))
-				.get();
-
-			if (!post) return null;
-
-			// Get like count
-			const likeCountResult = await db
-				.select({ count: sql<number>`count(*)` })
-				.from(likes)
-				.where(eq(likes.postId, post.id))
-				.get();
-
-			// Get comment count
-			const commentCountResult = await db
-				.select({ count: sql<number>`count(*)` })
-				.from(schema.comments)
-				.where(eq(schema.comments.postId, post.id))
-				.get();
-
-			// Check if requester liked this post
-			let isLiked = false;
-			if (requesterId) {
-				const likeStatus = await db
-					.select()
-					.from(likes)
-					.where(and(eq(likes.postId, post.id), eq(likes.userId, requesterId)))
-					.get();
-				isLiked = !!likeStatus;
-			}
-
-			return {
-				...post,
-				likeCount: likeCountResult?.count || 0,
-				commentCount: commentCountResult?.count || 0,
-				isLiked,
-			};
-		}),
-	);
-
-	return postsWithDetails.filter((p) => p !== null);
+	return hydratePosts(existingPosts, requesterId);
 }
