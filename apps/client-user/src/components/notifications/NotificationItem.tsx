@@ -194,6 +194,7 @@ export function NotificationItem({ notification, onRead, onDelete }: Notificatio
 	const preview = getPreview();
 
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: contains @mention links, which a <button> cannot legally nest
 		<div
 			{...stylex.props(styles.item, !notification.read && styles.itemUnread)}
 			onClick={handleClick}

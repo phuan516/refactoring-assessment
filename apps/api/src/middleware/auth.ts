@@ -20,7 +20,7 @@ export function validateSessionToken(token: string): AuthContext {
 			username: decoded.username,
 			role: decoded.role,
 		};
-	} catch (error) {
+	} catch {
 		throw new Error("Invalid or expired session token");
 	}
 }

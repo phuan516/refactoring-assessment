@@ -134,6 +134,7 @@ function NotificationsPage() {
 	const [loading, setLoading] = useState(true);
 	const [markingAll, setMarkingAll] = useState(false);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: load once on mount; loader is recreated every render and would refetch in a loop
 	useEffect(() => {
 		loadData();
 	}, []);

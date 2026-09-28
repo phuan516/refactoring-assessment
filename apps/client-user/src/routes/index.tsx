@@ -125,6 +125,7 @@ function HomePage() {
 	const [user, setUser] = useState<any>(null);
 	const [loading, setLoading] = useState(true);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: load once on mount; loader is recreated every render and would refetch in a loop
 	useEffect(() => {
 		loadData();
 	}, []);

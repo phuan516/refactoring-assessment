@@ -20,6 +20,7 @@ function PostPage() {
 	const [user, setUser] = useState<any>(null);
 	const [loading, setLoading] = useState(true);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reload only when postId changes; loader is recreated every render and would refetch in a loop
 	useEffect(() => {
 		loadData();
 	}, [postId]);

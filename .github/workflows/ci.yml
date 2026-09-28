@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # PRs: only packages changed vs the base branch, plus their dependents.
+      # Pushes to main: everything (turbo cache keeps unchanged packages cheap).
+      AFFECTED: ${{ github.event_name == 'pull_request' && '--affected' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # --affected diffs against the PR base, so history is required.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Restore turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm exec turbo run lint $AFFECTED
+
+      - name: Typecheck
+        run: pnpm exec turbo run typecheck $AFFECTED
+
+      - name: Unit tests
+        run: pnpm exec turbo run test $AFFECTED
+
+      - name: Build
+        run: pnpm exec turbo run build $AFFECTED

@@ -80,6 +80,7 @@ export function FollowButton({ username }: { username: string }) {
 	const [loading, setLoading] = useState(false);
 	const [isHovered, setIsHovered] = useState(false);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reload only when username changes; loader is recreated every render and would refetch in a loop
 	useEffect(() => {
 		loadFollowStatus();
 	}, [username]);

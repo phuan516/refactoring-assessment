@@ -1,17 +1,25 @@
 {
 	"$schema": "https://turbo.build/schema.json",
+	"globalPassThroughEnv": [
+		"CI",
+		"DATABASE_URL",
+		"GRPC_API_HOST",
+		"GRPC_JWT_SECRET",
+		"GRPC_PORT",
+		"HTTP_PORT",
+		"SESSION_SECRET"
+	],
 	"tasks": {
 		"build": {
 			"dependsOn": ["^build"],
 			"outputs": ["dist/**", ".output/**", ".vinxi/**", ".tanstack/**", "generated/**"]
 		},
 		"dev": {
+			"dependsOn": ["^build"],
 			"cache": false,
 			"persistent": true
 		},
-		"lint": {
-			"dependsOn": ["^build"]
-		},
+		"lint": {},
 		"typecheck": {
 			"dependsOn": ["^build"]
 		},
@@ -32,8 +40,15 @@
 		"proto:generate": {
 			"outputs": ["generated/**"]
 		},
-		"db:generate": {},
-		"db:migrate": {},
-		"db:seed": {}
+		"db:generate": {
+			"cache": false
+		},
+		"db:migrate": {
+			"cache": false
+		},
+		"db:seed": {
+			"dependsOn": ["db:migrate"],
+			"cache": false
+		}
 	}
 }

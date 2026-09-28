@@ -1,10 +1,5 @@
 import { expect, test } from "@playwright/test";
-import {
-	createPost,
-	loginAs,
-	uniqueId,
-	waitForHydration,
-} from "./fixtures/test-helpers";
+import { createPost, loginAs, uniqueId, waitForHydration } from "./fixtures/test-helpers";
 
 test.describe("Notifications - Comprehensive", () => {
 	test.describe("Notification Bell", () => {

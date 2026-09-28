@@ -172,6 +172,7 @@ function UserProfilePage() {
 	const [followingCount, setFollowingCount] = useState(0);
 	const [loading, setLoading] = useState(true);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reload only when username changes; loader is recreated every render and would refetch in a loop
 	useEffect(() => {
 		loadData();
 	}, [username]);

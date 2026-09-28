@@ -46,6 +46,7 @@ export function BookmarkButton({ postId, initialBookmarked = false }: BookmarkBu
 	const [bookmarked, setBookmarked] = useState(initialBookmarked);
 	const [loading, setLoading] = useState(false);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reload only when postId changes; loader is recreated every render and would refetch in a loop
 	useEffect(() => {
 		loadBookmarkStatus();
 	}, [postId]);

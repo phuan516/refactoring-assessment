@@ -1,0 +1,11 @@
+#!/bin/sh
+# Enabled by `pnpm install` (root "prepare" script sets core.hooksPath).
+# Keep this fast: lint only the staged files, typecheck only affected packages
+# (turbo cache makes unchanged packages free). Full checks run in CI.
+set -e
+
+echo "pre-commit: biome (staged files)"
+pnpm exec biome check --staged --no-errors-on-unmatched --diagnostic-level=error
+
+echo "pre-commit: typecheck (affected packages)"
+pnpm exec turbo run typecheck --affected --output-logs=errors-only

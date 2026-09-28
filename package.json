@@ -21,7 +21,8 @@
 		"db:generate": "turbo run db:generate",
 		"db:migrate": "turbo run db:migrate",
 		"db:seed": "turbo run db:seed",
-		"clean": "rm -rf node_modules .turbo apps/*/{.turbo,.output,.vinxi,.tanstack,dist,node_modules/.vite,node_modules/.cache,playwright-report,test-results,blob-report} packages/*/{.turbo,dist,node_modules/.cache} packages/*/generated/*.ts"
+		"clean": "rm -rf node_modules .turbo apps/*/{.turbo,.output,.vinxi,.tanstack,dist,node_modules/.vite,node_modules/.cache,playwright-report,test-results,blob-report} packages/*/{.turbo,dist,node_modules/.cache} packages/*/generated/*.ts",
+		"prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.3.11",

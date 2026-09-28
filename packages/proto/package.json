@@ -11,6 +11,7 @@
 	},
 	"scripts": {
 		"proto:generate": "pnpm exec protoc --ts_out ./generated --proto_path ./protos ./protos/*.proto",
+		"lint": "biome check .",
 		"typecheck": "tsc --noEmit",
 		"build": "pnpm run proto:generate"
 	},
