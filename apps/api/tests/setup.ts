@@ -131,15 +131,15 @@ vi.mock("../src/db", async () => {
 
 // Clean up database before each test
 beforeEach(async () => {
-	const { client } = await import("../src/db");
+	const client = (await import("../src/db")).db.$client;
 	// Clear all tables in reverse order of dependencies
-	await (client as any).execute("DELETE FROM audit_logs");
-	await (client as any).execute("DELETE FROM reports");
-	await (client as any).execute("DELETE FROM notifications");
-	await (client as any).execute("DELETE FROM bookmarks");
-	await (client as any).execute("DELETE FROM follows");
-	await (client as any).execute("DELETE FROM likes");
-	await (client as any).execute("DELETE FROM comments");
-	await (client as any).execute("DELETE FROM posts");
-	await (client as any).execute("DELETE FROM users");
+	await client.execute("DELETE FROM audit_logs");
+	await client.execute("DELETE FROM reports");
+	await client.execute("DELETE FROM notifications");
+	await client.execute("DELETE FROM bookmarks");
+	await client.execute("DELETE FROM follows");
+	await client.execute("DELETE FROM likes");
+	await client.execute("DELETE FROM comments");
+	await client.execute("DELETE FROM posts");
+	await client.execute("DELETE FROM users");
 });

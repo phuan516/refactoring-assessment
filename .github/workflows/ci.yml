@@ -41,7 +41,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: pnpm exec turbo run lint $AFFECTED
+        # Whole repo (~3s): root config such as biome.json is invisible to --affected.
+        run: pnpm exec biome ci .
 
       - name: Typecheck
         run: pnpm exec turbo run typecheck $AFFECTED

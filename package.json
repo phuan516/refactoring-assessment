@@ -16,12 +16,12 @@
 		"test": "turbo run test",
 		"test:unit": "turbo run test:unit",
 		"test:integration": "turbo run test:integration",
-		"test:e2e": "turbo run build || exit 1; pnpm --filter api start & API_PID=$!; until curl -sf http://localhost:3001/health > /dev/null 2>&1; do sleep 0.5; done; turbo run test:e2e; EXIT=$?; kill $API_PID 2>/dev/null; exit $EXIT",
+		"test:e2e": "sh scripts/test-e2e.sh",
 		"proto:generate": "turbo run proto:generate --filter=@chirp/proto",
 		"db:generate": "turbo run db:generate",
 		"db:migrate": "turbo run db:migrate",
 		"db:seed": "turbo run db:seed",
-		"clean": "rm -rf node_modules .turbo apps/*/{.turbo,.output,.vinxi,.tanstack,dist,node_modules/.vite,node_modules/.cache,playwright-report,test-results,blob-report} packages/*/{.turbo,dist,node_modules/.cache} packages/*/generated/*.ts",
+		"clean": "rm -rf node_modules .turbo apps/*/.turbo apps/*/.output apps/*/.vinxi apps/*/.tanstack apps/*/dist apps/*/node_modules/.vite apps/*/node_modules/.cache apps/*/playwright-report apps/*/test-results apps/*/blob-report packages/*/.turbo packages/*/dist packages/*/node_modules/.cache packages/*/generated/*.ts",
 		"prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
 	},
 	"devDependencies": {

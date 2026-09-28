@@ -31,12 +31,13 @@
 		"clsx": "^2.1.1",
 		"jsonwebtoken": "^9.0.2",
 		"lucide-react": "^0.561.0",
-		"nitro": "npm:nitro-nightly@latest",
+		"nitro": "npm:nitro-nightly@3.0.1-20260127-164246-ef01b092",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0",
 		"vite-tsconfig-paths": "^6.0.2"
 	},
 	"devDependencies": {
+		"@chirp/typescript-config": "workspace:*",
 		"@biomejs/biome": "^2.3.11",
 		"@playwright/test": "^1.57.0",
 		"@stylexjs/unplugin": "^0.17.5",

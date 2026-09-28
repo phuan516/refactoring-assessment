@@ -8,7 +8,7 @@
 		"build": "tsc",
 		"start": "tsx src/index.ts",
 		"lint": "biome check .",
-		"typecheck": "tsc --noEmit",
+		"typecheck": "tsc --noEmit -p tsconfig.test.json",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"db:generate": "drizzle-kit generate",
@@ -31,6 +31,7 @@
 		"jsonwebtoken": "^9.0.2"
 	},
 	"devDependencies": {
+		"@chirp/typescript-config": "workspace:*",
 		"@types/jsonwebtoken": "^9.0.9",
 		"@types/node": "^22.10.2",
 		"drizzle-kit": "^0.31.8",

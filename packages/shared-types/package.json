@@ -13,6 +13,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"devDependencies": {
+		"@chirp/typescript-config": "workspace:*",
 		"typescript": "^5.7.2"
 	}
 }

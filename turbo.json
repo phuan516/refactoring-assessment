@@ -19,7 +19,9 @@
 			"cache": false,
 			"persistent": true
 		},
-		"lint": {},
+		"lint": {
+			"inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/biome.json"]
+		},
 		"typecheck": {
 			"dependsOn": ["^build"]
 		},
@@ -35,7 +37,8 @@
 			"dependsOn": ["^build"]
 		},
 		"test:e2e": {
-			"dependsOn": ["build"]
+			"dependsOn": ["build"],
+			"cache": false
 		},
 		"proto:generate": {
 			"outputs": ["generated/**"]

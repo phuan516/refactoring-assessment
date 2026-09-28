@@ -16,6 +16,7 @@
 		"drizzle-orm": "^0.45.1"
 	},
 	"devDependencies": {
+		"@chirp/typescript-config": "workspace:*",
 		"typescript": "^5.7.2"
 	}
 }

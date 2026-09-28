@@ -19,6 +19,7 @@
 		"@protobuf-ts/runtime-rpc": "^2.9.4"
 	},
 	"devDependencies": {
+		"@chirp/typescript-config": "workspace:*",
 		"typescript": "^5.7.2"
 	}
 }
