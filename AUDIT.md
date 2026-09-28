@@ -14,9 +14,14 @@ client-user), and the API plus four packages were never linted at all.
 | 5.4 | API and 4 packages have no `lint` script; lint already red | Medium | Fixed |
 | 5.5 | `lint` waits on `^build` it does not need | Low | Fixed |
 | 5.6 | No CI, no pre-commit hook, no setup guide | Medium | Fixed |
-| 5.7 | Playwright `reuseExistingServer: true` runs E2E against any app on the port | Medium | Documented |
-| 5.8 | Root `test:e2e` orphans the API process | Low | Documented |
-| 5.9 | API `build` emits nothing; API tests excluded from typecheck | Low | Documented |
+| 5.7 | Playwright `reuseExistingServer: true` runs E2E against any app on the port | Medium | Fixed |
+| 5.8 | Root `test:e2e` orphans the API process | Low | Fixed |
+| 5.9 | API `build` emits nothing; API tests excluded from typecheck | Low | Partly fixed (tests typechecked) |
+| 5.10 | `typecheck` fails on a fresh clone (generated proto code and route trees missing) | High | Fixed |
+| 5.11 | Shared config changes (tsconfig base, `biome.json`) don't bust the cache or count as affected | Medium | Fixed |
+| 5.12 | `test:e2e` cacheable, so a stale pass can be replayed | Medium | Fixed |
+| 5.13 | `pnpm clean` relies on brace expansion that `/bin/sh` (dash) lacks | Low | Fixed |
+| 5.14 | `nitro` tracks `nitro-nightly@latest` | Low | Fixed |
 
 **5.1 Cached db tasks.** `turbo.json` declared `db:generate/migrate/seed` as `{}`, which is
 cacheable. Proven: delete `apps/api/chirp.db`, run `pnpm db:seed`; turbo replays the cached
@@ -55,20 +60,40 @@ which a `<button>` cannot nest.
   staged files only, then typecheck of affected packages (cache makes unchanged ones free).
 - `SETUP.md`: under 50 lines.
 
-**5.7 Not fixed yet.** Both Playwright configs set `reuseExistingServer: true`. Any process on
-:3000/:3002 (seen here: an unrelated Next.js app on :3000) is silently tested instead of Chirp.
-Proposed: `reuseExistingServer: !process.env.CI` plus a health path unique to the app.
+**5.7 Server reuse.** Both Playwright configs set `reuseExistingServer: true`. Any process on
+:3000/:3002 (seen here: an unrelated Next.js app on :3000) was silently tested instead of Chirp.
+Fix (`a418962`): `reuseExistingServer: !process.env.CI`. A health path unique to the app would
+also protect local runs.
 
-**5.8 Not fixed yet.** `pnpm test:e2e` kills the `pnpm` wrapper PID, not the `tsx` child, leaving the
-API on :3001. Proposed: run the API in its own process group and `kill -- -$PGID`, or use a
-Playwright `webServer` entry for the API.
+**5.8 Orphaned API.** `pnpm test:e2e` killed the `pnpm` wrapper PID, not the `tsx` child, leaving
+the API on :3001; it also waited forever for an API that never came up, and one app's failure
+cancelled the other. Fix (`a418962`): `scripts/test-e2e.sh` kills the whole process tree on exit
+(process groups need a TTY, which CI lacks, so it walks the tree with `pgrep`), gives up after 60s
+without a healthy API, and runs turbo with `--continue`.
 
-**5.9 Not fixed.** API `tsc` inherits `noEmit: true`, so `build` is a typecheck and `dist/` never
-exists (harmless: `start` runs `tsx`). API test files are excluded from `tsconfig`, so test code is
-never typechecked. Proposed: a `tsconfig.test.json` included in `typecheck`.
+**5.9 API build and test typecheck.** API test files were excluded from `tsconfig`, so test code
+was never typechecked; this hid a type error in `tests/setup.ts` behind `as any`. Fix
+(`a418962`): `apps/api/tsconfig.test.json`, used by the API `typecheck` script, and `setup.ts` now
+uses `db.$client`. Not fixed: API `tsc` still inherits `noEmit: true`, so `build` is a typecheck
+and `dist/` never exists (harmless: `start` runs `tsx`).
+
+**5.10 Fresh-clone typecheck.** The first CI run failed. `packages/proto` re-exports git-ignored
+generated code, but its `typecheck` only waited for dependencies' builds, never its own
+`proto:generate`; the client apps import `routeTree.gen.ts`, which was git-ignored and only
+written by `vite build`/`dev`. Local runs passed because both were left over from earlier builds.
+Fix (`27e1bc5`): `packages/proto/turbo.json` makes proto's typecheck depend on its own build, and
+both `routeTree.gen.ts` files are committed (as TanStack Router recommends) and excluded from
+Biome. Making the root `typecheck` depend on `proto:generate` was tried first and rejected: it ran
+protoc twice concurrently, which raced on the first-run protoc download (`ETXTBSY`).
+
+**5.11 to 5.14** (`a418962`). Every package now declares `@chirp/typescript-config`, which fixes
+both the cache hash and `--affected` for shared config changes (`globalDependencies` alone does
+not fix `--affected`); lint inputs include `biome.json` and CI lints the whole repo with
+`biome ci`. `test:e2e` is `cache: false`. `clean` spells its paths out. `nitro` is pinned to the
+version already in the lockfile.
 
 E2E is kept out of CI for now: it needs Playwright browsers, a seeded DB and the three servers.
-Next step is a separate job gated on the verify job, after 5.7/5.8 are fixed.
+Next step is a separate job gated on the verify job; 5.7 and 5.8, which it depended on, are fixed.
 
 ## Task 3: Error handling & observability
 
@@ -238,7 +263,8 @@ accepted by `AdminService.ListUsers`. Bans and demotions were ignored until toke
 was thrown away by the clients. Cookie `SESSION_SECRET`s also had hard-coded defaults.
 Fix:
 - Only the API signs tokens. Clients store the API-issued `sessionToken` in their encrypted
-  session cookie and forward it; `jsonwebtoken` and the JWT secret are gone from both clients.
+  session cookie and forward it. Neither client imports `jsonwebtoken` or holds the JWT secret any
+  more (the now-unused dependency is still listed in both clients' `package.json`).
 - Sign/verify pinned to `HS256`, issuer `chirp-api`, audience `chirp-clients`.
 - `validateSessionToken` is now async and loads the user on every call: missing or banned users
   are rejected, and `username`/`role` come from the database, so demotions and bans take effect
@@ -276,7 +302,8 @@ token for an active user stays valid until expiry). No rate limiting on login.
 in-memory libsql DB (`apps/api/tests/setup.ts`) wiped before every test. Clean E2E baseline (own
 ports, DB copy): client-user 98 passed / 2 failed and client-admin 171 passed / 2 failed at the
 point it was stopped; all 4 failures were the first tests of the run, timing out during Vite's cold
-compile.
+compile. After all changes, a full run on a freshly seeded database passed 539 of 539 (user app 201,
+admin app 338).
 
 **Isolation problems found**
 - *E2E shared mutable users (root cause of flakiness).* `fullyParallel: true` with default workers,
@@ -301,7 +328,8 @@ compile.
 - `loginAsNewUser(page)` in `apps/client-user/tests/e2e/fixtures/test-helpers.ts` registers a unique
   user through the real form. The bookmarks empty-state test now uses it and asserts unconditionally
   (previously it could pass without asserting anything).
-- Coverage: added 272 API tests (138 -> 409 passing, 3 skipped as real bugs):
+- Coverage: added 274 API tests (138 -> 409 passing, plus 3 skipped as real bugs; 528 passing
+  across the whole repo):
   - services: admin (every mutation also checks its audit-log row), notifications, search, users,
     mentions, and the post edit-window expiry error path;
   - handlers: bookmarks, feed, follows, notifications, search, users (success, bad token, service

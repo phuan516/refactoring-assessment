@@ -10,7 +10,10 @@ pnpm install          # also enables the git pre-commit hook (.githooks/)
 pnpm db:seed          # applies migrations, then seeds test data into apps/api/chirp.db
 pnpm dev              # generates protos, then starts API :3001, user app :3000, admin :3002
 ```
-Test logins: `alice@test.com / password123`, admin `admin@chirp.com / admin123`.
+Test logins: `alice@test.com / password123`, admin app `admin@chirp.test / admin123`.
+
+Set a fixed API secret first (any 32+ characters), e.g. `export GRPC_JWT_SECRET=$(openssl rand -hex 32)`.
+Without it the dev API picks a random secret on every start, so each reload logs everyone out.
 
 ## Everyday commands
 | Command | What it does |
