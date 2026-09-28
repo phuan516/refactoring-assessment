@@ -3,10 +3,22 @@ import { useSession } from "@tanstack/react-start/server";
 export interface SessionData {
 	userId: string;
 	username: string;
+	sessionToken: string;
 }
 
-// Session secret - in production, use environment variable
-const SESSION_SECRET = process.env.SESSION_SECRET || "chirp-session-secret-key-at-least-32-chars";
+function resolveSessionSecret(devDefault: string): string {
+	const configured = process.env.SESSION_SECRET;
+	if (configured && configured.length >= 32) {
+		return configured;
+	}
+	if (process.env.NODE_ENV === "production") {
+		throw new Error("SESSION_SECRET must be set to at least 32 characters in production");
+	}
+	return devDefault;
+}
+
+// Required in production; the fallback is only for local development.
+const SESSION_SECRET = resolveSessionSecret("chirp-session-secret-key-at-least-32-chars");
 
 export function useAppSession() {
 	return useSession<SessionData>({
@@ -23,7 +35,8 @@ export function useAppSession() {
 
 export async function getSessionData(): Promise<SessionData | null> {
 	const session = await useAppSession();
-	if (!session.data.userId) {
+	// Cookies from before API-issued tokens have no sessionToken: treat as logged out.
+	if (!session.data.userId || !session.data.sessionToken) {
 		return null;
 	}
 	return session.data as SessionData;

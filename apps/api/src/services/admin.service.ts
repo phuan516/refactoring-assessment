@@ -161,6 +161,16 @@ export async function updateUserRole(userId: string, role: string, adminId: stri
 		throw new InvalidArgumentError("Invalid role");
 	}
 
+	// Role changes are admin-only; moderators must not be able to promote anyone (incl. themselves).
+	const actor = await db
+		.select({ role: users.role })
+		.from(users)
+		.where(eq(users.id, adminId))
+		.get();
+	if (actor?.role !== "admin") {
+		throw new Error("Super admin access required");
+	}
+
 	const user = await db.select().from(users).where(eq(users.id, userId)).get();
 
 	if (!user) {

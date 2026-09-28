@@ -12,7 +12,7 @@ import {
 export const followsHandler: IFollowsService = {
 	async toggleFollow(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			const result = await toggleFollow(request.username, auth.userId);
 
 			return {
@@ -31,7 +31,7 @@ export const followsHandler: IFollowsService = {
 
 	async getFollowStatus(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			const result = await getFollowStatus(request.username, auth.userId);
 
 			return { following: result.following };

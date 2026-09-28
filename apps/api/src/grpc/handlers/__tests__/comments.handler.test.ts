@@ -27,7 +27,7 @@ describe("CommentsHandler", () => {
 
 	describe("createComment", () => {
 		it("creates a comment with valid session token", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -52,7 +52,7 @@ describe("CommentsHandler", () => {
 		});
 
 		it("creates a reply to another comment", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -93,7 +93,7 @@ describe("CommentsHandler", () => {
 		});
 
 		it("returns error when post not found", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -161,7 +161,7 @@ describe("CommentsHandler", () => {
 		});
 
 		it("returns comments with isLiked for authenticated user", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -199,7 +199,7 @@ describe("CommentsHandler", () => {
 
 	describe("deleteComment", () => {
 		it("deletes comment with valid session token", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -231,7 +231,7 @@ describe("CommentsHandler", () => {
 		});
 
 		it("returns error when user is not the author", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-456",
 				username: "other",
 				role: "user",

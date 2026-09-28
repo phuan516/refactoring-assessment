@@ -26,7 +26,7 @@ describe("SearchHandler", () => {
 	});
 
 	const mockValidSession = () => {
-		vi.mocked(validateSessionToken).mockReturnValue({
+		vi.mocked(validateSessionToken).mockResolvedValue({
 			userId: "user-123",
 			username: "testuser",
 			role: "user",

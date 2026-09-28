@@ -10,7 +10,7 @@ export const usersHandler: IUsersService = {
 		let userId: string | undefined;
 		if (request.sessionToken) {
 			try {
-				const auth = validateSessionToken(request.sessionToken);
+				const auth = await validateSessionToken(request.sessionToken);
 				userId = auth.userId;
 			} catch {
 				// Ignore invalid token for public access
@@ -37,7 +37,7 @@ export const usersHandler: IUsersService = {
 
 	async updateProfile(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			await updateProfile({
 				userId: auth.userId,
 				displayName: request.displayName || undefined,

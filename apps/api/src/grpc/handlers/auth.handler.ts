@@ -61,7 +61,7 @@ export const authHandler: IAuthService = {
 
 	async getCurrentUser(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			const user = await getCurrentUser(auth.userId);
 
 			return {
@@ -83,7 +83,7 @@ export const authHandler: IAuthService = {
 
 	async validateSession(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			return {
 				valid: true,
 				userId: auth.userId,

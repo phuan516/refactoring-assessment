@@ -1,9 +1,5 @@
 import { type ChirpClient, createChirpClient } from "@chirp/grpc-client";
-import jwt from "jsonwebtoken";
-import { getSessionData, type SessionData } from "./session.server";
-
-// JWT secret must match the API server
-const JWT_SECRET = process.env.GRPC_JWT_SECRET || "chirp-grpc-jwt-secret-key-at-least-32-chars";
+import { getSessionData } from "./session.server";
 
 // gRPC API host
 const GRPC_HOST = process.env.GRPC_API_HOST || "localhost:50051";
@@ -25,34 +21,13 @@ export function getGrpcClient(): ChirpClient {
 }
 
 /**
- * Creates a JWT session token from cookie session data for gRPC calls
- * Token expires in 5 minutes (short-lived for security)
- */
-export function createGrpcSessionToken(
-	session: SessionData,
-	role: "user" | "admin" | "moderator" = "user",
-): string {
-	return jwt.sign(
-		{
-			userId: session.userId,
-			username: session.username,
-			role,
-		},
-		JWT_SECRET,
-		{ expiresIn: 300 }, // 5 minutes
-	);
-}
-
-/**
- * Gets the current session token for gRPC calls
+ * Gets the session token the API issued at login (stored in the encrypted cookie).
+ * Clients never mint tokens: the API alone signs them and resolves the user's role.
  * Returns undefined if user is not authenticated
  */
 export async function getGrpcSessionToken(): Promise<string | undefined> {
 	const session = await getSessionData();
-	if (!session) {
-		return undefined;
-	}
-	return createGrpcSessionToken(session);
+	return session?.sessionToken;
 }
 
 /**

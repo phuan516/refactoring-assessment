@@ -12,7 +12,7 @@ import { toProtoTimestamp } from "../../services/utils";
 export const bookmarksHandler: IBookmarksService = {
 	async toggleBookmark(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			const result = await toggleBookmark(request.postId, auth.userId);
 
 			return {
@@ -31,7 +31,7 @@ export const bookmarksHandler: IBookmarksService = {
 
 	async getBookmarkStatus(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			const result = await getBookmarkStatus(request.postId, auth.userId);
 
 			return { bookmarked: result.bookmarked };
@@ -43,7 +43,7 @@ export const bookmarksHandler: IBookmarksService = {
 
 	async getBookmarkedPosts(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			const posts = await getBookmarkedPosts(
 				auth.userId,
 				auth.userId,

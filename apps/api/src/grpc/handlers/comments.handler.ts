@@ -28,7 +28,7 @@ function toCommentResponse(comment: any): CommentResponse {
 export const commentsHandler: ICommentsService = {
 	async createComment(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			const result = await createComment({
 				postId: request.postId,
 				content: request.content,
@@ -54,7 +54,7 @@ export const commentsHandler: ICommentsService = {
 		let userId: string | undefined;
 		if (request.sessionToken) {
 			try {
-				const auth = validateSessionToken(request.sessionToken);
+				const auth = await validateSessionToken(request.sessionToken);
 				userId = auth.userId;
 			} catch {
 				// Ignore invalid token for public access
@@ -70,7 +70,7 @@ export const commentsHandler: ICommentsService = {
 
 	async deleteComment(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			await deleteComment(request.commentId, auth.userId);
 
 			return { success: true };

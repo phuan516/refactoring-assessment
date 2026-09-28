@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { createTestUser } from "../../tests/helpers";
@@ -115,6 +116,61 @@ describe("AuthService", () => {
 					password: "password123",
 				}),
 			).rejects.toThrow("Account banned: Violated ToS");
+		});
+	});
+
+	describe("password storage migration", () => {
+		it("stores new registrations as salted scrypt hashes", async () => {
+			const result = await registerUser({
+				email: "scrypt@example.com",
+				username: "scryptuser",
+				displayName: "Scrypt User",
+				password: "password123",
+			});
+
+			const user = await db.select().from(users).where(eq(users.id, result.userId)).get();
+			expect(user?.passwordHash.startsWith("scrypt$")).toBe(true);
+		});
+
+		it("logs in a user with a legacy sha256 hash and upgrades it to scrypt", async () => {
+			const legacyHash = createHash("sha256")
+				.update("password123" + "salt")
+				.digest("hex");
+			await db.insert(users).values({
+				id: "legacy-user",
+				email: "legacy@example.com",
+				username: "legacyuser",
+				displayName: "Legacy User",
+				passwordHash: legacyHash,
+				role: "user",
+			});
+
+			const first = await loginUser({ email: "legacy@example.com", password: "password123" });
+			expect(first.userId).toBe("legacy-user");
+
+			const upgraded = await db.select().from(users).where(eq(users.id, "legacy-user")).get();
+			expect(upgraded?.passwordHash.startsWith("scrypt$")).toBe(true);
+
+			const second = await loginUser({ email: "legacy@example.com", password: "password123" });
+			expect(second.userId).toBe("legacy-user");
+			await expect(
+				loginUser({ email: "legacy@example.com", password: "wrongpassword" }),
+			).rejects.toThrow("Invalid email or password");
+		});
+
+		it("does not reveal ban status to someone without the password", async () => {
+			const user = await createTestUser({
+				email: "banned2@example.com",
+				password: "password123",
+			});
+			await db
+				.update(users)
+				.set({ bannedAt: new Date(), bannedReason: "Violated ToS" })
+				.where(eq(users.id, user.id));
+
+			await expect(
+				loginUser({ email: "banned2@example.com", password: "wrongpassword" }),
+			).rejects.toThrow("Invalid email or password");
 		});
 	});
 

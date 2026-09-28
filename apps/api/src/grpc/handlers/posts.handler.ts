@@ -35,7 +35,7 @@ function toPostResponse(post: any): PostResponse {
 export const postsHandler: IPostsService = {
 	async createPost(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			const result = await createPost({
 				content: request.content,
 				authorId: auth.userId,
@@ -59,7 +59,7 @@ export const postsHandler: IPostsService = {
 		let userId: string | undefined;
 		if (request.sessionToken) {
 			try {
-				const auth = validateSessionToken(request.sessionToken);
+				const auth = await validateSessionToken(request.sessionToken);
 				userId = auth.userId;
 			} catch {
 				// Ignore invalid token for public access
@@ -72,7 +72,7 @@ export const postsHandler: IPostsService = {
 
 	async updatePost(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			await updatePost({
 				postId: request.postId,
 				content: request.content,
@@ -91,7 +91,7 @@ export const postsHandler: IPostsService = {
 
 	async deletePost(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			await deletePost(request.postId, auth.userId);
 
 			return { success: true };
@@ -108,7 +108,7 @@ export const postsHandler: IPostsService = {
 		let userId: string | undefined;
 		if (request.sessionToken) {
 			try {
-				const auth = validateSessionToken(request.sessionToken);
+				const auth = await validateSessionToken(request.sessionToken);
 				userId = auth.userId;
 			} catch {
 				// Ignore invalid token for public access
@@ -130,7 +130,7 @@ export const postsHandler: IPostsService = {
 		let userId: string | undefined;
 		if (request.sessionToken) {
 			try {
-				const auth = validateSessionToken(request.sessionToken);
+				const auth = await validateSessionToken(request.sessionToken);
 				userId = auth.userId;
 			} catch {
 				// Ignore invalid token for public access

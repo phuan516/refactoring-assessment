@@ -203,3 +203,69 @@ fails those tests. The rule is also written at the top of `post-hydration.ts`.
   (schema/migration change). Batching cut the number of queries; indexes would cut the cost of each.
 - Task 1 adds one primary-key user lookup per authenticated request, which adds 1 to each
   page-level count above.
+
+## Task 1: Credentials & trust
+
+| # | Finding | Severity | Status |
+|---|---|---|---|
+| 1.A | Passwords stored as `sha256(password + "salt")`, no per-user salt, no work factor; ban status leaked before password check | Critical | Fixed |
+| 1.B | API trusts JWTs minted by the client apps with a public default secret; role/username taken from the token; no DB check | Critical | Fixed |
+| 1.C | Moderators can change roles, including promoting themselves to admin | High | Fixed |
+| 1.D | gRPC bound to `0.0.0.0` with `createInsecure()` (no TLS) | Medium | Documented |
+
+Line numbers refer to the code before the fix.
+
+**1.A Password storage.** `apps/api/src/services/utils.ts:13-25` hashed every password as
+`sha256(password + "salt")` hex and compared with `===`. The constant salt means equal passwords
+give equal hashes (all seeded `password123` users share one hash) and one GPU pass cracks the
+whole table; the seeded `password123` / `admin123` / `mod123` fall to a dictionary instantly.
+`apps/api/src/services/auth.service.ts:71-78` also checked `bannedAt` before the password, so
+anyone knowing an email learned "Account banned: <reason>".
+Fix: scrypt from `node:crypto` (no new dependency) with a random 16-byte salt per hash, stored
+as `scrypt$N$r$p$salt$hash` (N=2^14, r=8, p=1, 64-byte key) so cost can be raised later, compared
+with `timingSafeEqual`. Malformed hashes never verify. Login now verifies the password first and
+only then reports a ban (unchanged message for the rightful owner); unknown emails run a dummy
+scrypt verify so response time does not reveal which emails exist.
+
+**1.B Client-minted tokens.** `apps/api/src/middleware/auth.ts:4` and both
+`apps/client-*/src/lib/grpc.server.ts:6` fell back to the same hard-coded
+`GRPC_JWT_SECRET`. Each client signed its own token with a role of its choosing
+(`createGrpcSessionToken`, `createAdminGrpcSessionToken`); `validateSessionToken` returned
+`userId/username/role` straight from the payload; `requireAdmin` trusted that role. Proven: a
+token signed with the public default claiming `role: "admin"` for a user that does not exist was
+accepted by `AdminService.ListUsers`. Bans and demotions were ignored until token expiry, and
+`jwt.verify` pinned no algorithm, issuer or audience. The token the API already issues at login
+was thrown away by the clients. Cookie `SESSION_SECRET`s also had hard-coded defaults.
+Fix:
+- Only the API signs tokens. Clients store the API-issued `sessionToken` in their encrypted
+  session cookie and forward it; `jsonwebtoken` and the JWT secret are gone from both clients.
+- Sign/verify pinned to `HS256`, issuer `chirp-api`, audience `chirp-clients`.
+- `validateSessionToken` is now async and loads the user on every call: missing or banned users
+  are rejected, and `username`/`role` come from the database, so demotions and bans take effect
+  immediately.
+- `GRPC_JWT_SECRET` (API) and `SESSION_SECRET` (clients) are required, 32+ chars, when
+  `NODE_ENV=production` (startup fails otherwise). In development the API uses a random
+  per-process secret with a warning; sessions reset when the API restarts.
+
+**1.C Role changes.** `apps/api/src/grpc/handlers/admin.handler.ts:134-137` gated
+`updateUserRole` with `requireAdmin`, which admits moderators. `updateUserRole` in
+`admin.service.ts` now loads the acting user's role from the database and requires `admin`
+("Super admin access required").
+
+**Migration and rollout.**
+- Passwords: rehash on login. Legacy hex hashes still verify (constant-time); on the first
+  successful login the hash is replaced with scrypt. A failed rewrite is logged and never blocks
+  the login. Existing seeded databases keep working with no manual step; a fresh `db:seed` writes
+  scrypt directly. Optional follow-up (not implemented): a one-off script that wraps every dormant
+  legacy hash as `scrypt(sha256hex)` under a distinct prefix, so the weak hashes stop existing at
+  rest without needing plaintext; after that, delete `legacySha256Hash`.
+- Secrets: the old default JWT and cookie secrets are public and must be treated as leaked.
+  Production must set fresh `GRPC_JWT_SECRET` (API only) and `SESSION_SECRET` (each client).
+- Sessions: tokens minted by clients and cookies without a `sessionToken` are rejected, so
+  every user is logged out once and signs in again. No schema change.
+
+**Residual.** 1.D: `apps/api/src/grpc/server.ts:45` binds `0.0.0.0` with insecure credentials,
+so session tokens cross the network in clear text. Should bind to a private interface or use
+TLS / a service mesh in production. Session tokens are 7-day bearer tokens with no revocation
+list; logout is client-side only (the DB lookup makes bans and demotions effective, but a stolen
+token for an active user stays valid until expiry). No rate limiting on login.

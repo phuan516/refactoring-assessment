@@ -74,7 +74,7 @@ function toAuditLogResponse(log: any): AuditLogResponse {
 
 export const adminHandler: IAdminService = {
 	async listUsers(request) {
-		const auth = validateSessionToken(request.sessionToken);
+		const auth = await validateSessionToken(request.sessionToken);
 		requireAdmin(auth);
 
 		const result = await listUsers({
@@ -91,7 +91,7 @@ export const adminHandler: IAdminService = {
 	},
 
 	async getUserDetails(request) {
-		const auth = validateSessionToken(request.sessionToken);
+		const auth = await validateSessionToken(request.sessionToken);
 		requireAdmin(auth);
 
 		const user = await getUserDetails(request.userId);
@@ -103,7 +103,7 @@ export const adminHandler: IAdminService = {
 
 	async banUser(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			requireAdmin(auth);
 
 			await banUser(request.userId, request.reason, auth.userId);
@@ -120,7 +120,7 @@ export const adminHandler: IAdminService = {
 
 	async unbanUser(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			requireAdmin(auth);
 
 			await unbanUser(request.userId, auth.userId);
@@ -137,7 +137,7 @@ export const adminHandler: IAdminService = {
 
 	async updateUserRole(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			requireAdmin(auth);
 
 			await updateUserRole(request.userId, request.role, auth.userId);
@@ -154,7 +154,7 @@ export const adminHandler: IAdminService = {
 
 	async deleteUser(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			requireAdmin(auth);
 
 			await deleteUser(request.userId, auth.userId);
@@ -171,7 +171,7 @@ export const adminHandler: IAdminService = {
 
 	async deletePostAdmin(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			requireAdmin(auth);
 
 			await deletePostAdmin(request.postId, request.reason, auth.userId);
@@ -188,7 +188,7 @@ export const adminHandler: IAdminService = {
 
 	async deleteCommentAdmin(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			requireAdmin(auth);
 
 			await deleteCommentAdmin(request.commentId, request.reason, auth.userId);
@@ -204,7 +204,7 @@ export const adminHandler: IAdminService = {
 	},
 
 	async listReports(request) {
-		const auth = validateSessionToken(request.sessionToken);
+		const auth = await validateSessionToken(request.sessionToken);
 		requireAdmin(auth);
 
 		const result = await listReports({
@@ -221,7 +221,7 @@ export const adminHandler: IAdminService = {
 	},
 
 	async getReport(request) {
-		const auth = validateSessionToken(request.sessionToken);
+		const auth = await validateSessionToken(request.sessionToken);
 		requireAdmin(auth);
 
 		const report = await getReport(request.reportId);
@@ -231,7 +231,7 @@ export const adminHandler: IAdminService = {
 
 	async reviewReport(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			requireAdmin(auth);
 
 			await reviewReport(request.reportId, request.action, auth.userId, request.notes || undefined);
@@ -247,7 +247,7 @@ export const adminHandler: IAdminService = {
 	},
 
 	async getDashboardStats(request) {
-		const auth = validateSessionToken(request.sessionToken);
+		const auth = await validateSessionToken(request.sessionToken);
 		requireAdmin(auth);
 
 		const stats = await getDashboardStats();
@@ -264,7 +264,7 @@ export const adminHandler: IAdminService = {
 	},
 
 	async getAuditLogs(request) {
-		const auth = validateSessionToken(request.sessionToken);
+		const auth = await validateSessionToken(request.sessionToken);
 		requireAdmin(auth);
 
 		const result = await getAuditLogs({

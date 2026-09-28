@@ -44,6 +44,8 @@ export const loginAdmin = createServerFn({ method: "POST" })
 			username: validateResponse.username,
 			role: role as "admin" | "moderator",
 		});
+		// The API-issued token is the only credential used for later gRPC calls.
+		await setAdminSessionData({ sessionToken: loginResponse.sessionToken });
 
 		return { success: true, userId: loginResponse.userId, role };
 	});

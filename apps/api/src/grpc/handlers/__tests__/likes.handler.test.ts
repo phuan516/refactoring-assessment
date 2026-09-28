@@ -33,7 +33,7 @@ describe("LikesHandler", () => {
 
 	describe("togglePostLike", () => {
 		it("likes a post with valid session token", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -52,7 +52,7 @@ describe("LikesHandler", () => {
 		});
 
 		it("unlikes a post", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -85,7 +85,7 @@ describe("LikesHandler", () => {
 		});
 
 		it("returns error when post not found", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -105,7 +105,7 @@ describe("LikesHandler", () => {
 
 	describe("toggleCommentLike", () => {
 		it("likes a comment with valid session token", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -124,7 +124,7 @@ describe("LikesHandler", () => {
 		});
 
 		it("unlikes a comment", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -159,7 +159,7 @@ describe("LikesHandler", () => {
 
 	describe("getPostLikeStatus", () => {
 		it("returns liked status for valid session", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -177,7 +177,7 @@ describe("LikesHandler", () => {
 		});
 
 		it("returns not liked when post is not liked", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -209,7 +209,7 @@ describe("LikesHandler", () => {
 
 	describe("getCommentLikeStatus", () => {
 		it("returns liked status for valid session", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",

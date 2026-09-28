@@ -37,7 +37,7 @@ describe("PostsHandler", () => {
 
 	describe("createPost", () => {
 		it("creates a post with valid session token", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -74,7 +74,7 @@ describe("PostsHandler", () => {
 		});
 
 		it("returns error when content exceeds limit", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -124,7 +124,7 @@ describe("PostsHandler", () => {
 		});
 
 		it("returns post with isLiked status for authenticated user", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-456",
 				username: "another",
 				role: "user",
@@ -160,7 +160,7 @@ describe("PostsHandler", () => {
 
 	describe("updatePost", () => {
 		it("updates post with valid session token", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -198,7 +198,7 @@ describe("PostsHandler", () => {
 		});
 
 		it("returns error when edit window has passed", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -217,7 +217,7 @@ describe("PostsHandler", () => {
 		});
 
 		it("returns error when user is not the author", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-456",
 				username: "other",
 				role: "user",
@@ -238,7 +238,7 @@ describe("PostsHandler", () => {
 
 	describe("deletePost", () => {
 		it("deletes post with valid session token", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -270,7 +270,7 @@ describe("PostsHandler", () => {
 		});
 
 		it("returns error when user is not the author", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-456",
 				username: "other",
 				role: "user",
@@ -343,7 +343,7 @@ describe("PostsHandler", () => {
 		});
 
 		it("returns posts with isLiked for authenticated user", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -391,7 +391,7 @@ describe("PostsHandler", () => {
 		});
 
 		it("returns posts with isLiked for authenticated user", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "viewer",
 				role: "user",

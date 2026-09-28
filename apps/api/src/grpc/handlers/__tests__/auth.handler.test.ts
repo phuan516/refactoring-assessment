@@ -139,7 +139,7 @@ describe("AuthHandler", () => {
 
 	describe("getCurrentUser", () => {
 		it("returns user data for valid session", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -168,7 +168,7 @@ describe("AuthHandler", () => {
 		});
 
 		it("handles null avatarUrl and bio", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -202,7 +202,7 @@ describe("AuthHandler", () => {
 		});
 
 		it("throws error when user not found", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "user",
@@ -218,7 +218,7 @@ describe("AuthHandler", () => {
 
 	describe("validateSession", () => {
 		it("returns valid response for valid token", async () => {
-			vi.mocked(validateSessionToken).mockReturnValue({
+			vi.mocked(validateSessionToken).mockResolvedValue({
 				userId: "user-123",
 				username: "testuser",
 				role: "admin",

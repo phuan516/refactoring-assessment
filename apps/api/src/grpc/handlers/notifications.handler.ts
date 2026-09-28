@@ -14,7 +14,7 @@ import { toProtoTimestamp } from "../../services/utils";
 export const notificationsHandler: INotificationsService = {
 	async getNotifications(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			const notifications = await getUserNotifications(
 				auth.userId,
 				request.limit || 20,
@@ -49,7 +49,7 @@ export const notificationsHandler: INotificationsService = {
 
 	async getUnreadCount(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			const result = await getUnreadCount(auth.userId);
 			return { count: result.count };
 		} catch (error) {
@@ -60,7 +60,7 @@ export const notificationsHandler: INotificationsService = {
 
 	async markAsRead(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			await markAsRead(request.notificationId, auth.userId);
 			return { success: true };
 		} catch (error) {
@@ -74,7 +74,7 @@ export const notificationsHandler: INotificationsService = {
 
 	async markAllAsRead(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			await markAllAsRead(auth.userId);
 			return { success: true };
 		} catch (error) {
@@ -88,7 +88,7 @@ export const notificationsHandler: INotificationsService = {
 
 	async deleteNotification(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			await deleteNotification(request.notificationId, auth.userId);
 			return { success: true };
 		} catch (error) {

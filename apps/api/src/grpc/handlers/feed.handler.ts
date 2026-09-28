@@ -25,7 +25,7 @@ function toPostResponse(post: any): PostResponse {
 
 export const feedHandler: IFeedService = {
 	async getHomeFeed(request) {
-		const auth = validateSessionToken(request.sessionToken);
+		const auth = await validateSessionToken(request.sessionToken);
 		const posts = await getHomeFeed(auth.userId, {
 			limit: request.pagination?.limit || 20,
 			offset: request.pagination?.offset || 0,
@@ -40,7 +40,7 @@ export const feedHandler: IFeedService = {
 		let userId: string | undefined;
 		if (request.sessionToken) {
 			try {
-				const auth = validateSessionToken(request.sessionToken);
+				const auth = await validateSessionToken(request.sessionToken);
 				userId = auth.userId;
 			} catch {
 				// Ignore invalid token for public access

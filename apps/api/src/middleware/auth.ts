@@ -1,7 +1,38 @@
+import { randomBytes } from "node:crypto";
 import type { GrpcSessionPayload } from "@chirp/shared-types";
+import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
+import { db, schema } from "../db";
 
-const JWT_SECRET = process.env.GRPC_JWT_SECRET || "chirp-grpc-jwt-secret-key-at-least-32-chars";
+const { users } = schema;
+
+const JWT_ALGORITHM = "HS256";
+const JWT_ISSUER = "chirp-api";
+const JWT_AUDIENCE = "chirp-clients";
+const MIN_SECRET_LENGTH = 32;
+
+/**
+ * Only the API signs and verifies session tokens; clients just carry the token the API
+ * issued at login. In production a strong GRPC_JWT_SECRET is mandatory. Elsewhere, if it
+ * is unset, a random per-process secret is used (sessions end when the API restarts).
+ */
+function resolveJwtSecret(): string {
+	const configured = process.env.GRPC_JWT_SECRET;
+	if (configured && configured.length >= MIN_SECRET_LENGTH) {
+		return configured;
+	}
+	if (process.env.NODE_ENV === "production") {
+		throw new Error(
+			`GRPC_JWT_SECRET must be set to at least ${MIN_SECRET_LENGTH} characters in production`,
+		);
+	}
+	console.warn(
+		`GRPC_JWT_SECRET is unset or shorter than ${MIN_SECRET_LENGTH} chars; using a random per-process secret (sessions reset on restart)`,
+	);
+	return randomBytes(48).toString("base64");
+}
+
+const JWT_SECRET = resolveJwtSecret();
 
 export interface AuthContext {
 	userId: string;
@@ -10,19 +41,47 @@ export interface AuthContext {
 }
 
 /**
- * Validates a session token and returns the auth context
+ * Validates a session token and returns the auth context.
+ * The token only proves which user id the API authenticated; username and role are
+ * loaded from the database on every call so bans and role changes apply immediately.
  */
-export function validateSessionToken(token: string): AuthContext {
+export async function validateSessionToken(token: string): Promise<AuthContext> {
+	let userId: string;
 	try {
-		const decoded = jwt.verify(token, JWT_SECRET) as GrpcSessionPayload;
-		return {
-			userId: decoded.userId,
-			username: decoded.username,
-			role: decoded.role,
-		};
+		const decoded = jwt.verify(token, JWT_SECRET, {
+			algorithms: [JWT_ALGORITHM],
+			issuer: JWT_ISSUER,
+			audience: JWT_AUDIENCE,
+		}) as GrpcSessionPayload;
+		userId = decoded.userId;
 	} catch {
 		throw new Error("Invalid or expired session token");
 	}
+
+	if (typeof userId !== "string" || userId.length === 0) {
+		throw new Error("Invalid or expired session token");
+	}
+
+	const user = await db
+		.select({
+			id: users.id,
+			username: users.username,
+			role: users.role,
+			bannedAt: users.bannedAt,
+		})
+		.from(users)
+		.where(eq(users.id, userId))
+		.get();
+
+	if (!user || user.bannedAt) {
+		throw new Error("Invalid or expired session token");
+	}
+
+	return {
+		userId: user.id,
+		username: user.username,
+		role: user.role,
+	};
 }
 
 /**
@@ -39,14 +98,19 @@ export function createSessionToken(
 			role: context.role,
 		},
 		JWT_SECRET,
-		{ expiresIn: expiresInSeconds },
+		{
+			algorithm: JWT_ALGORITHM,
+			issuer: JWT_ISSUER,
+			audience: JWT_AUDIENCE,
+			expiresIn: expiresInSeconds,
+		},
 	);
 }
 
 /**
  * Requires authentication - throws if token is invalid
  */
-export function requireAuth(token: string | undefined): AuthContext {
+export async function requireAuth(token: string | undefined): Promise<AuthContext> {
 	if (!token) {
 		throw new Error("Authentication required");
 	}
@@ -70,5 +134,3 @@ export function requireSuperAdmin(context: AuthContext): void {
 		throw new Error("Super admin access required");
 	}
 }
-
-export { JWT_SECRET };

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, schema } from "../db";
 import {
@@ -7,7 +8,7 @@ import {
 	UnauthenticatedError,
 } from "../errors";
 import { type AuthContext, createSessionToken } from "../middleware/auth";
-import { generateId, hashPassword, verifyPassword } from "./utils";
+import { generateId, hashPassword, needsRehash, verifyPassword } from "./utils";
 
 const { users } = schema;
 
@@ -66,11 +67,27 @@ export async function registerUser(input: RegisterInput) {
 	return { userId, sessionToken };
 }
 
+// Verified against when the email is unknown so both paths cost one scrypt verification.
+let dummyHashPromise: Promise<string> | null = null;
+function getDummyHash(): Promise<string> {
+	if (!dummyHashPromise) {
+		dummyHashPromise = hashPassword(randomBytes(16).toString("hex"));
+	}
+	return dummyHashPromise;
+}
+
 export async function loginUser(input: LoginInput) {
 	// Find user by email
 	const user = await db.select().from(users).where(eq(users.email, input.email)).get();
 
 	if (!user) {
+		await verifyPassword(input.password, await getDummyHash());
+		throw new UnauthenticatedError("Invalid email or password");
+	}
+
+	// Verify password before revealing anything about the account (e.g. ban status)
+	const valid = await verifyPassword(input.password, user.passwordHash);
+	if (!valid) {
 		throw new UnauthenticatedError("Invalid email or password");
 	}
 
@@ -79,10 +96,17 @@ export async function loginUser(input: LoginInput) {
 		throw new PermissionDeniedError(`Account banned: ${user.bannedReason || "No reason provided"}`);
 	}
 
-	// Verify password
-	const valid = await verifyPassword(input.password, user.passwordHash);
-	if (!valid) {
-		throw new UnauthenticatedError("Invalid email or password");
+	// Incremental migration: upgrade legacy / weaker hashes now that we have the plaintext.
+	if (needsRehash(user.passwordHash)) {
+		try {
+			const passwordHash = await hashPassword(input.password);
+			await db
+				.update(users)
+				.set({ passwordHash, updatedAt: new Date() })
+				.where(eq(users.id, user.id));
+		} catch (error) {
+			console.error("Password rehash failed; login continues with existing hash", error);
+		}
 	}
 
 	// Create session token

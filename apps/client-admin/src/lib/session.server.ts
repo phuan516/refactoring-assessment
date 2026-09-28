@@ -4,11 +4,23 @@ export interface AdminSessionData {
 	userId: string;
 	username: string;
 	role: "admin" | "moderator";
+	// API-issued token; absent only on cookies written before this field existed.
+	sessionToken?: string;
 }
 
-// Session secret - in production, use environment variable
-const SESSION_SECRET =
-	process.env.SESSION_SECRET || "chirp-admin-session-secret-key-at-least-32-chars";
+function resolveSessionSecret(devDefault: string): string {
+	const configured = process.env.SESSION_SECRET;
+	if (configured && configured.length >= 32) {
+		return configured;
+	}
+	if (process.env.NODE_ENV === "production") {
+		throw new Error("SESSION_SECRET must be set to at least 32 characters in production");
+	}
+	return devDefault;
+}
+
+// Required in production; the fallback is only for local development.
+const SESSION_SECRET = resolveSessionSecret("chirp-admin-session-secret-key-at-least-32-chars");
 
 export function useAdminSession() {
 	return useSession<AdminSessionData>({
@@ -25,7 +37,8 @@ export function useAdminSession() {
 
 export async function getAdminSessionData(): Promise<AdminSessionData | null> {
 	const session = await useAdminSession();
-	if (!session.data.userId || !session.data.role) {
+	// Cookies from before API-issued tokens have no sessionToken: treat as logged out.
+	if (!session.data.userId || !session.data.role || !session.data.sessionToken) {
 		return null;
 	}
 	// Verify role is admin or moderator
@@ -35,7 +48,7 @@ export async function getAdminSessionData(): Promise<AdminSessionData | null> {
 	return session.data as AdminSessionData;
 }
 
-export async function setAdminSessionData(data: AdminSessionData): Promise<void> {
+export async function setAdminSessionData(data: Partial<AdminSessionData>): Promise<void> {
 	const session = await useAdminSession();
 	await session.update(data);
 }

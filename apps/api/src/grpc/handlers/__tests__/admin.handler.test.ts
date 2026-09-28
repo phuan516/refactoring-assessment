@@ -49,7 +49,7 @@ describe("AdminHandler", () => {
 	});
 
 	const mockAdminAuth = () => {
-		vi.mocked(validateSessionToken).mockReturnValue({
+		vi.mocked(validateSessionToken).mockResolvedValue({
 			userId: "admin-123",
 			username: "admin",
 			role: "admin",
@@ -58,7 +58,7 @@ describe("AdminHandler", () => {
 	};
 
 	const mockUserAuth = () => {
-		vi.mocked(validateSessionToken).mockReturnValue({
+		vi.mocked(validateSessionToken).mockResolvedValue({
 			userId: "user-123",
 			username: "testuser",
 			role: "user",

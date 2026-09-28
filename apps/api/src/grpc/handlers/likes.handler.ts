@@ -12,7 +12,7 @@ import {
 export const likesHandler: ILikesService = {
 	async togglePostLike(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			const result = await togglePostLike(request.postId, auth.userId);
 
 			return {
@@ -31,7 +31,7 @@ export const likesHandler: ILikesService = {
 
 	async toggleCommentLike(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			const result = await toggleCommentLike(request.commentId, auth.userId);
 
 			return {
@@ -50,7 +50,7 @@ export const likesHandler: ILikesService = {
 
 	async getPostLikeStatus(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			const result = await getPostLikeStatus(request.postId, auth.userId);
 
 			return { liked: result.liked };
@@ -62,7 +62,7 @@ export const likesHandler: ILikesService = {
 
 	async getCommentLikeStatus(request) {
 		try {
-			const auth = validateSessionToken(request.sessionToken);
+			const auth = await validateSessionToken(request.sessionToken);
 			const result = await getCommentLikeStatus(request.commentId, auth.userId);
 
 			return { liked: result.liked };
