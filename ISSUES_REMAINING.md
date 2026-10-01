@@ -3,11 +3,13 @@
 Known issues found during the audit and not fixed in the time available. Details and evidence for
 each task are in `AUDIT.md`.
 
-## Pending verification
-- **Full E2E run after all merges.** Unit tests (522 passing, 3 skipped), typecheck, lint and build
-  are green, and CI passes. E2E has not yet run against the merged code. Task 1 changes the login
-  flow (clients now use the API-issued session token), so it is the main E2E risk. Run with
-  `pnpm test:e2e` and a fixed `GRPC_JWT_SECRET` (see Task 1 below).
+## Verification
+- Unit tests (528 passing, 3 skipped as documented bugs), typecheck, lint and build are green, and
+  CI passes.
+- The full E2E suite was still running when time was called. Re-run afterwards on a freshly seeded
+  database, it passed 539 of 539 (user app 201, admin app 338), including the Task 1 login change,
+  which was the main E2E risk. Run it with `pnpm test:e2e` and a fixed `GRPC_JWT_SECRET` (see Task 1
+  below).
 
 ## Bugs found by new tests (skipped with `// BUG:` in `apps/api/src/services/admin.service.test.ts`)
 - `listUsers`: a search term plus a role filter drops the search term, because each filter replaces
@@ -23,8 +25,8 @@ each task are in `AUDIT.md`.
   replaces each legacy hash with `scrypt(sha256hex)` (no plaintext needed), which
   `verifyPassword` recognises.
 - **Dev secret:** without `GRPC_JWT_SECRET` the API uses a random per-process secret, so every API
-  restart (including `tsx watch` reloads) logs everyone out. Set a fixed value locally and for E2E.
-  Production refuses to start without it.
+  restart (including `tsx watch` reloads) logs everyone out. Set a fixed value locally and for E2E
+  (`SETUP.md` says how). Production refuses to start without it.
 - **Leaked secret:** the old hard-coded default JWT and cookie secrets must be treated as leaked and
   rotated in any real deployment.
 - **No revocation:** tokens are 7-day bearer tokens. Logout is client-side only; a stolen token for
@@ -65,6 +67,10 @@ each task are in `AUDIT.md`.
 - `apps/api/tests/setup.ts` hand-copies the schema; build it from `db/migrations/*.sql` instead.
   Set `isolate: true` explicitly in `apps/api/vitest.config.ts`.
 - `@vitest/coverage-v8` isn't installed, so the configured coverage reports fail.
+- Under heavy parallel E2E load the Nitro dev server intermittently fails requests with "Response
+  body object should not be disturbed or locked". This predates the assessment; `loginAs` hides
+  the resulting Vite error overlay with CSS, so it never fails a test but can mask real server
+  errors. Fix the race or stop hiding the overlay.
 
 ## Task 5: Build pipeline
 - E2E is not in CI yet. Add a job gated on `verify` that installs Playwright browsers and seeds a DB.
@@ -75,8 +81,5 @@ each task are in `AUDIT.md`.
 - The API `build` inherits `noEmit`, so it emits nothing (`start` runs `tsx`).
 - Both clients hard-code TanStack devtools ports (42069 and 42070), so two copies of an app can't
   run at once.
-- README Quick Start tells newcomers to run `db:generate` (only needed after schema edits) and lists
-  `eve@test.com`, which the seed doesn't create (it creates `admin_old` and `moderator`). `SETUP.md`
-  is correct.
 - Playwright 1.58 on Ubuntu 26.04 needs `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64` to
   install browsers.

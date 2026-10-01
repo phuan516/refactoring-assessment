@@ -2,7 +2,13 @@
 
 A Twitter-like social media platform built as a monorepo with TanStack Start, React 19, gRPC, StyleX, and SQLite.
 
-> NOTE: Task details are documented in TASK.md
+> This repo is my submission for a 90-minute platform refactoring assessment. The brief is in
+> [`TASK.md`](TASK.md).
+>
+> - [`PROCESS.md`](PROCESS.md): how I worked through it (order, planning, challenges)
+> - [`AUDIT.md`](AUDIT.md): findings, evidence and before/after measurements per task
+> - [`ISSUES_REMAINING.md`](ISSUES_REMAINING.md): what I found but did not fix, with proposed fixes
+> - [`SETUP.md`](SETUP.md): short developer setup guide
 
 ## Architecture
 
@@ -18,15 +24,10 @@ Chirp is a full-stack monorepo application with:
 # Install dependencies
 pnpm install
 
-# Generate protocol buffers
-pnpm run proto:generate
-
-# Setup database
-pnpm run db:generate
-pnpm run db:migrate
+# Migrate and seed the database (db:seed runs db:migrate first)
 pnpm run db:seed
 
-# Start all services (API + User App + Admin App)
+# Generate protocol buffers, then start all services (API + User App + Admin App)
 pnpm run dev
 ```
 
@@ -47,10 +48,10 @@ After running the seed script:
 - bob@test.com / password123
 - charlie@test.com / password123
 - diana@test.com / password123
-- eve@test.com / password123
 
-### Admin User
-- admin@chirp.com / admin123
+### Admin Users
+- admin@chirp.test / admin123 (admin)
+- moderator@chirp.test / mod123 (moderator)
 
 ## Features
 
@@ -151,7 +152,7 @@ pnpm run test             # Run all tests
 pnpm run test:unit        # Run unit tests
 pnpm run test:e2e         # Run E2E tests
 
-pnpm run db:generate      # Generate database migrations
+pnpm run db:generate      # Generate a new migration (only after editing the schema)
 pnpm run db:migrate       # Run database migrations
 pnpm run db:seed          # Seed database with test data
 
@@ -233,11 +234,8 @@ cd apps/client-user && pnpm exec playwright test --ui
 ```bash
 # Clean everything and start fresh
 pnpm run clean
-rm -f chirp.db chirp.db-shm chirp.db-wal
+rm -f apps/api/chirp.db apps/api/chirp.db-shm apps/api/chirp.db-wal
 pnpm install
-pnpm run proto:generate
-pnpm run db:generate
-pnpm run db:migrate
 pnpm run db:seed
 ```
 
